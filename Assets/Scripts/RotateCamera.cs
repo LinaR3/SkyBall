@@ -1,25 +1,25 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
-
 
 public class RotateCamera : MonoBehaviour
 {
-    private InputSystem_Actions control;
-    public float rotationSpeed = 50f;
-    
+    public float rotationSpeed = 150f;
+    private InputSystem_Actions controls;
+
     void Awake()
     {
-        control = new InputSystem_Actions();
+        controls = new InputSystem_Actions();
     }
 
     private void OnEnable()
     {
-        control.Player.Enable();
+        controls.Player.Enable();
+        Debug.Log(controls.Player.Move);
     }
 
-    void Update()
+    private void Update()
     {
-        Vector2 moveInput = control.Player.Move.ReadValue<Vector2>();
-        transform.Rotate(Vector3.up, moveInput.x * rotationSpeed * Time.deltaTime);
+        Vector2 moveInput = controls.Player.Move.ReadValue<Vector2>();
+        float horizontalInput = moveInput.x;
+        transform.Rotate(Vector3.up, horizontalInput * rotationSpeed * Time.deltaTime);
     }
 }
