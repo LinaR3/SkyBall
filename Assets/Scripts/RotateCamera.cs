@@ -1,26 +1,25 @@
-// using UnityEngine;
-// using UnityEngine.InputSystem;
+using UnityEngine;
 
+public class RotateCamera : MonoBehaviour
+{
+    public float rotationSpeed = 150f;
+    private InputSystem_Actions controls;
 
-// public class RotateCamera : MonoBehaviour
-// {
-//     private InputSystem_Actions control;
-//     public float rotationForce;
-//     // Start is called once before the first execution of Update after the MonoBehaviour is created
-//     void Awake()
-//     {
-//         control = new InputSystem_Actions();
-//     }
+    void Awake()
+    {
+        controls = new InputSystem_Actions();
+    }
 
-//     private void OnEnable()
-//     {
-//         control.Player.Enable();
-//     }
+    private void OnEnable()
+    {
+        controls.Player.Enable();
+        Debug.Log(controls.Player.Move);
+    }
 
-//     // Update is called once per frame
-//     void Update()
-//     {
-//         Vector2 moveInput = control.Player.Move.ReadValue<Vector2>();
-//         transform.Rotate(Vector3.up, moveInput.x * rotationForce * Time.deltaTime);
-//     }
-// }
+    private void Update()
+    {
+        Vector2 moveInput = controls.Player.Move.ReadValue<Vector2>();
+        float horizontalInput = moveInput.x;
+        transform.Rotate(Vector3.up, horizontalInput * rotationSpeed * Time.deltaTime);
+    }
+}
