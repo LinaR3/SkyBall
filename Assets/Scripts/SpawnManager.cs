@@ -1,48 +1,60 @@
 using UnityEngine;
-using System.Collections.Generic;
-using UnityEngine;
 
 public class SpawnManager : MonoBehaviour
 {
-    public GameObject enemyPrefab;
-    public int enemyCount;
-    public int waveNumber = 1;
-    public GameObject powerupPrefab;
-    private float spawnRange = 9;
+    [SerializeField] private GameObject enemyPrefab;
+    [SerializeField] private GameObject powerupPrefab;
+    [SerializeField] private float spawnRange = 9f;
 
-    void Start()
+    public int enemyCount;
+    public int waveNumber = 2;
+
+    private bool waveActive;
+
+    private void Start()
     {
-        // for(int i = 0; i < 3; i++)
         SpawnEnemyWave(waveNumber);
-        Instantiate(powerupPrefab, GenerateSpawnPosition(), powerupPrefab.transform.rotation);
+        SpawnPowerup();
     }
 
-    void Update()
+    private void Update()
     {
         enemyCount = FindObjectsByType<Enemy>(FindObjectsSortMode.None).Length;
-        if (enemyCount == 0) 
+
+        if (waveActive && enemyCount == 0)
         {
             waveNumber++;
             SpawnEnemyWave(waveNumber);
-            Instantiate(powerupPrefab, GenerateSpawnPosition(), powerupPrefab.transform.rotation);
+            SpawnPowerup();
         }
     }
 
     private Vector3 GenerateSpawnPosition()
     {
-        float spawnPosX = Random.Range(-spawnRange, spawnRange);
-        float spawnPosZ = Random.Range(-spawnRange, spawnRange);
-        Vector3 randomPos = new Vector3(spawnPosX, 0, spawnPosZ);
-        return randomPos;
+        return new Vector3(
+            Random.Range(-spawnRange, spawnRange),
+            0f,
+            Random.Range(-spawnRange, spawnRange)
+        );
     }
 
-    void SpawnEnemyWave(int enemiesToSpawn)
+    private void SpawnEnemyWave(int enemiesToSpawn)
     {
+        waveActive = true;
+
         for (int i = 0; i < enemiesToSpawn; i++)
         {
             Instantiate(enemyPrefab, GenerateSpawnPosition(),
-            enemyPrefab.transform.rotation);
+                enemyPrefab.transform.rotation);
+        }
+    }
+
+    private void SpawnPowerup()
+    {
+        if (powerupPrefab != null)
+        {
+            Instantiate(powerupPrefab, GenerateSpawnPosition(),
+                powerupPrefab.transform.rotation);
         }
     }
 }
-

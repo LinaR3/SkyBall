@@ -18,6 +18,13 @@ public class PlayerController : MonoBehaviour
         playerRb = GetComponent<Rigidbody>();
         focalPoint = GameObject.Find("Focal Point");
     }
+    void Start()
+    {
+        if (powerupIndicator != null)
+        {
+            powerupIndicator.SetActive(false);
+        }
+    }
 
     void OnEnable()
     {
@@ -38,10 +45,14 @@ public class PlayerController : MonoBehaviour
         {
             hasPowerup = true;
             Destroy(other.gameObject);
-            StartCoroutine(PowerupCountdownRoutine());
-            powerupIndicator.gameObject.SetActive(true);
-        }
 
+            if (powerupIndicator != null)
+            {
+                powerupIndicator.SetActive(true);
+            }
+
+            StartCoroutine(PowerupCountdownRoutine());
+        }
     }
 
     private void OnCollisionEnter(Collision collision)
@@ -58,8 +69,14 @@ public class PlayerController : MonoBehaviour
 
     IEnumerator PowerupCountdownRoutine()
     {
-        yield return new WaitForSeconds(7); hasPowerup = false;
-        powerupIndicator.gameObject.SetActive(false);
+        yield return new WaitForSeconds(7f);
+
+        hasPowerup = false;
+
+        if (powerupIndicator != null)
+        {
+            powerupIndicator.SetActive(false);
+        }
     }
 
 }
