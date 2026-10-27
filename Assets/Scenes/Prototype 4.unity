@@ -362,6 +362,10 @@ MonoBehaviour:
   acceleration: 24
   braking: 30
   hasPowerup: 0
+  jumpImpulse: 5.5
+  groundCheckDistance: 0.9
+  arrowForwardOffset: 1
+  arrowGroundOffset: 0.035
   powerupIndicator: {fileID: 909869370}
 --- !u!1 &1049139903
 GameObject:

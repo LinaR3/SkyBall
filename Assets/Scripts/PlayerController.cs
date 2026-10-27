@@ -11,11 +11,18 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float speedBoostMultiplier = 1.75f;
     [SerializeField] private float powerupDuration = 5f;
     [SerializeField] private float powerupStrength = 15f;
+    [SerializeField] private float jumpImpulse = 5.5f;
+    [SerializeField] private float groundCheckDistance = 0.9f;
+    [SerializeField] private float arrowForwardOffset = 1f;
+    [SerializeField] private float arrowGroundOffset = 0.035f;
 
     private InputSystem_Actions controls;
     private Rigidbody playerRb;
     private GameObject focalPoint;
     private Vector2 moveInput;
+    private Transform directionArrow;
+    private Material directionArrowMaterial;
+    private bool jumpRequested;
     private Coroutine powerupRoutine;
     private Vector3 startPosition;
     private Quaternion startRotation;
@@ -28,6 +35,7 @@ public class PlayerController : MonoBehaviour
         startPosition = transform.position;
         startRotation = transform.rotation;
         GoalReset.CacheInitialPositions();
+        CreateDirectionArrow();
     }
 
     private void Start()
@@ -38,17 +46,40 @@ public class PlayerController : MonoBehaviour
 
     private void OnEnable()
     {
+        if (controls == null)
+            controls = new InputSystem_Actions();
         controls.Player.Enable();
     }
 
     private void OnDisable()
     {
-        controls.Player.Disable();
+        if (controls != null)
+            controls.Player.Disable();
+    }
+
+    private void OnDestroy()
+    {
+        if (directionArrow != null)
+            Destroy(directionArrow.gameObject);
+        if (directionArrowMaterial != null)
+            Destroy(directionArrowMaterial);
+        if (controls != null)
+        {
+            controls.Dispose();
+            controls = null;
+        }
     }
 
     private void Update()
     {
-        moveInput = Vector2.ClampMagnitude(controls.Player.Move.ReadValue<Vector2>(), 1f);
+        if (controls != null)
+        {
+            moveInput = Vector2.ClampMagnitude(controls.Player.Move.ReadValue<Vector2>(), 1f);
+            if (controls.Player.Jump.WasPressedThisFrame())
+                jumpRequested = true;
+        }
+
+        UpdateDirectionArrow();
 
         if (powerupIndicator != null && powerupIndicator.activeSelf)
             powerupIndicator.transform.position = transform.position + Vector3.down * 0.5f;
@@ -71,6 +102,64 @@ public class PlayerController : MonoBehaviour
         float response = moveDirection.sqrMagnitude > 0f ? acceleration : braking;
         Vector3 velocityChange = Vector3.ClampMagnitude(targetVelocity - currentPlanarVelocity, response * Time.fixedDeltaTime);
         playerRb.AddForce(velocityChange, ForceMode.VelocityChange);
+
+        if (jumpRequested)
+        {
+            jumpRequested = false;
+            if (IsGrounded())
+                playerRb.AddForce(Vector3.up * jumpImpulse, ForceMode.Impulse);
+        }
+    }
+
+    private bool IsGrounded()
+    {
+        return Physics.Raycast(transform.position, Vector3.down, groundCheckDistance,
+            Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+    }
+
+    private void CreateDirectionArrow()
+    {
+        directionArrow = new GameObject("Direction Chevrons").transform;
+
+        Shader arrowShader = Shader.Find("Universal Render Pipeline/Unlit");
+        if (arrowShader == null) arrowShader = Shader.Find("Unlit/Color");
+        directionArrowMaterial = new Material(arrowShader);
+        directionArrowMaterial.color = new Color(0.34f, 0.78f, 0.72f, 1f);
+        CreateArrowSegment("Front Chevron Left", new Vector3(-0.3f, 0f, -0.08f), new Vector3(0f, 0f, 0.16f));
+        CreateArrowSegment("Front Chevron Right", new Vector3(0f, 0f, 0.16f), new Vector3(0.3f, 0f, -0.08f));
+        CreateArrowSegment("Rear Chevron Left", new Vector3(-0.3f, 0f, -0.36f), new Vector3(0f, 0f, -0.12f));
+        CreateArrowSegment("Rear Chevron Right", new Vector3(0f, 0f, -0.12f), new Vector3(0.3f, 0f, -0.36f));
+    }
+
+    private void CreateArrowSegment(string segmentName, Vector3 start, Vector3 end)
+    {
+        GameObject segment = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        segment.name = segmentName;
+        segment.transform.SetParent(directionArrow, false);
+        segment.transform.localPosition = (start + end) * 0.5f;
+        Vector3 direction = end - start;
+        segment.transform.localRotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
+        segment.transform.localScale = new Vector3(0.075f, 0.018f, direction.magnitude);
+        Destroy(segment.GetComponent<Collider>());
+
+        MeshRenderer renderer = segment.GetComponent<MeshRenderer>();
+        renderer.sharedMaterial = directionArrowMaterial;
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        renderer.receiveShadows = false;
+    }
+
+    private void UpdateDirectionArrow()
+    {
+        if (directionArrow == null || focalPoint == null) return;
+        Vector3 forward = Vector3.ProjectOnPlane(focalPoint.transform.forward, Vector3.up).normalized;
+        Vector3 arrowPosition = transform.position + forward * arrowForwardOffset;
+        if (Physics.Raycast(arrowPosition + Vector3.up * 2f, Vector3.down, out RaycastHit groundHit,
+                6f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            arrowPosition = groundHit.point + Vector3.up * arrowGroundOffset;
+        else
+            arrowPosition += Vector3.down * 0.72f;
+
+        directionArrow.SetPositionAndRotation(arrowPosition, Quaternion.LookRotation(forward, Vector3.up));
     }
 
     private void OnTriggerEnter(Collider other)
@@ -117,6 +206,7 @@ public class PlayerController : MonoBehaviour
     public void ResetPlayer()
     {
         transform.SetPositionAndRotation(startPosition, startRotation);
+        jumpRequested = false;
         if (playerRb != null)
         {
             playerRb.linearVelocity = Vector3.zero;

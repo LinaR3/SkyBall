@@ -5,21 +5,42 @@ public class RotateCamera : MonoBehaviour
     public float rotationSpeed = 150f;
     private InputSystem_Actions controls;
 
-    void Awake()
+    private void Awake()
     {
-        controls = new InputSystem_Actions();
+        EnsureControls();
     }
 
     private void OnEnable()
     {
+        EnsureControls();
         controls.Player.Enable();
-        Debug.Log(controls.Player.Move);
+    }
+
+    private void OnDisable()
+    {
+        if (controls != null)
+            controls.Player.Disable();
+    }
+
+    private void OnDestroy()
+    {
+        if (controls != null)
+        {
+            controls.Dispose();
+            controls = null;
+        }
     }
 
     private void Update()
     {
+        if (controls == null) return;
         Vector2 moveInput = controls.Player.Move.ReadValue<Vector2>();
-        float horizontalInput = moveInput.x;
-        transform.Rotate(Vector3.up, horizontalInput * rotationSpeed * Time.deltaTime);
+        transform.Rotate(Vector3.up, moveInput.x * rotationSpeed * Time.deltaTime);
+    }
+
+    private void EnsureControls()
+    {
+        if (controls == null)
+            controls = new InputSystem_Actions();
     }
 }
