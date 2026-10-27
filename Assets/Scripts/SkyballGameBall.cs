@@ -21,7 +21,13 @@ public sealed class SkyballGameBall : MonoBehaviour
         kickoffRotation = transform.rotation;
     }
 
-    public static SkyballGameBall CreateForMatch(Transform player, Transform forwardReference)
+    private void Update()
+    {
+        if (transform.position.y < -10f)
+            ResetToKickoff();
+    }
+
+    public static SkyballGameBall CreateForMatch(Transform player, Transform forwardReference, Collider groundCollider)
     {
         if (Instance != null) return Instance;
 
@@ -34,8 +40,8 @@ public sealed class SkyballGameBall : MonoBehaviour
         Vector3 position = player != null
             ? player.position + forward * 2.1f
             : new Vector3(0f, 0.6f, 0f);
-        if (Physics.Raycast(position + Vector3.up * 4f, Vector3.down, out RaycastHit groundHit,
-                10f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+        Ray groundRay = new Ray(position + Vector3.up * 4f, Vector3.down);
+        if (groundCollider != null && groundCollider.Raycast(groundRay, out RaycastHit groundHit, 10f))
             position.y = groundHit.point.y + 0.58f;
         else
             position.y = Mathf.Max(position.y, 0.58f);

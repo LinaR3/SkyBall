@@ -361,11 +361,9 @@ MonoBehaviour:
   playerSpeed: 6.5
   acceleration: 24
   braking: 30
-  hasPowerup: 0
+  aimReference: {fileID: 1049139904}
   jumpImpulse: 5.5
   groundCheckDistance: 0.9
-  arrowForwardOffset: 1
-  arrowGroundOffset: 0.035
   powerupIndicator: {fileID: 909869370}
 --- !u!1 &1049139903
 GameObject:
@@ -459,7 +457,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SpawnManager
   enemyPrefab: {fileID: 8882567041089185009, guid: 4eb0ae67b87cd4320a597ec61d97ddfc, type: 3}
   powerupPrefab: {fileID: 2423830131885596505, guid: 4b936d42cd51a4886a8d64163941b491, type: 3}
-  spawnRange: 9
+  spawnRange: 7.2
   enemyCount: 0
   waveNumber: 1
 --- !u!1 &1211016355

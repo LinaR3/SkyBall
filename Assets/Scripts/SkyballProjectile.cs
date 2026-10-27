@@ -16,7 +16,7 @@ public sealed class SkyballProjectile : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.isTrigger) return;
+        if (other.isTrigger || other.CompareTag("Player")) return;
 
         CreateImpactBurst(transform.position);
 

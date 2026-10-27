@@ -1,109 +1,83 @@
-using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class PlayerController : MonoBehaviour
+/// <summary>Reads player input and controls movement, jumping, and size.</summary>
+public sealed class PlayerController : MonoBehaviour
 {
     public static PlayerController Instance { get; private set; }
 
-    public float playerSpeed = 6.5f;
+    [SerializeField] private float playerSpeed = 6.5f;
     [SerializeField] private float acceleration = 24f;
     [SerializeField] private float braking = 30f;
-    public bool hasPowerup;
-    public GameObject powerupIndicator;
-    [SerializeField] private float speedBoostMultiplier = 1.75f;
-    [SerializeField] private float powerupDuration = 5f;
-    [SerializeField] private float powerupStrength = 15f;
+    [SerializeField] private GameObject powerupIndicator;
+    [SerializeField] private Transform aimReference;
     [SerializeField] private float jumpImpulse = 5.5f;
     [SerializeField] private float groundCheckDistance = 0.9f;
-    [SerializeField] private float arrowForwardOffset = 1f;
-    [SerializeField] private float arrowGroundOffset = 0.075f;
-    [SerializeField] private float rapidFireDuration = 1f;
-    [SerializeField] private float rapidFireInterval = 0.09f;
-    [SerializeField] private float projectileSpeed = 24f;
-    [SerializeField] private float shotImpulse = 0.07f;
-    [SerializeField, Range(3, 7)] private int projectilesPerBurst = 5;
-    [SerializeField] private float projectileSpreadDegrees = 14f;
 
     private InputSystem_Actions controls;
-    private Rigidbody playerRb;
-    private GameObject focalPoint;
+    private Rigidbody body;
+    private SphereCollider sphereCollider;
+    private PlayerAbilityController abilities;
+    private BallDirectionIndicator directionIndicator;
     private Vector2 moveInput;
-    private Transform directionArrow;
-    private Material directionArrowMaterial;
-    private bool jumpRequested;
-    private Coroutine powerupRoutine;
     private Vector3 startPosition;
     private Quaternion startRotation;
-    private Renderer playerRenderer;
     private Vector3 originalScale;
     private float originalSpeed;
     private float originalAcceleration;
     private float originalBraking;
-    private float rapidFireExpiresAt;
-    private float powerupExpiresAt;
-    private float nextShotAt;
-    private string ballSizeLabel = "MEDIANA";
-    private Material projectileMaterial;
-    private Color originalBallColor = Color.white;
-    private Coroutine pickupFeedbackRoutine;
+    private bool jumpRequested;
+    private string ballSizeLabel = "MEDIANA · NORMAL";
 
-    public float RapidFireRemaining => Mathf.Max(0f, rapidFireExpiresAt - Time.time);
-    public float PowerupRemaining => Mathf.Max(0f, powerupExpiresAt - Time.time);
+    public float RapidFireRemaining => abilities != null ? abilities.RapidFireRemaining : 0f;
+    public float PowerupRemaining => abilities != null ? abilities.PowerupRemaining : 0f;
+    public string PickupMessage => abilities != null ? abilities.PickupMessage : string.Empty;
     public string BallSizeLabel => ballSizeLabel;
+    public float HorizontalInput => moveInput.x;
+    public Transform AimReference => aimReference;
 
     private void Awake()
     {
         Instance = this;
         controls = new InputSystem_Actions();
-        playerRb = GetComponent<Rigidbody>();
-        playerRenderer = GetComponent<Renderer>();
-        if (playerRenderer != null && playerRenderer.sharedMaterial != null)
-            originalBallColor = playerRenderer.sharedMaterial.color;
+        body = GetComponent<Rigidbody>();
+        sphereCollider = GetComponent<SphereCollider>();
+        if (aimReference == null)
+            Debug.LogError("PlayerController needs an aim reference for movement and shots.", this);
+        startPosition = transform.position;
+        startRotation = transform.rotation;
         originalScale = transform.localScale;
         originalSpeed = playerSpeed;
         originalAcceleration = acceleration;
         originalBraking = braking;
-        focalPoint = GameObject.Find("Focal Point");
-        startPosition = transform.position;
-        startRotation = transform.rotation;
-        SkyballMatchManager.EnsureInstance();
-        CreateDirectionArrow();
-    }
 
-    private void Start()
-    {
-        if (powerupIndicator != null)
-            powerupIndicator.SetActive(hasPowerup);
+        SkyballMatchManager.EnsureInstance();
+        Collider arenaGround = SkyballArenaPresentation.Instance != null
+            ? SkyballArenaPresentation.Instance.GroundCollider
+            : null;
+        abilities = gameObject.AddComponent<PlayerAbilityController>();
+        abilities.Initialize(aimReference, powerupIndicator);
+        directionIndicator = gameObject.AddComponent<BallDirectionIndicator>();
+        directionIndicator.Initialize(transform, aimReference, arenaGround);
     }
 
     private void OnEnable()
     {
-        if (controls == null)
-            controls = new InputSystem_Actions();
+        if (controls == null) controls = new InputSystem_Actions();
         controls.Player.Enable();
     }
 
     private void OnDisable()
     {
-        if (controls != null)
-            controls.Player.Disable();
+        if (controls != null) controls.Player.Disable();
     }
 
     private void OnDestroy()
     {
         if (Instance == this) Instance = null;
-        if (directionArrow != null)
-            Destroy(directionArrow.gameObject);
-        if (directionArrowMaterial != null)
-            Destroy(directionArrowMaterial);
-        if (projectileMaterial != null)
-            Destroy(projectileMaterial);
-        if (controls != null)
-        {
-            controls.Dispose();
-            controls = null;
-        }
+        if (controls == null) return;
+        controls.Dispose();
+        controls = null;
     }
 
     private void Update()
@@ -111,50 +85,40 @@ public class PlayerController : MonoBehaviour
         if (controls != null)
         {
             moveInput = Vector2.ClampMagnitude(controls.Player.Move.ReadValue<Vector2>(), 1f);
-            if (controls.Player.Jump.WasPressedThisFrame())
-                jumpRequested = true;
+            if (controls.Player.Jump.WasPressedThisFrame()) jumpRequested = true;
         }
 
         ReadGameplayShortcuts();
-        if (RapidFireRemaining > 0f)
-            TryFireRapidShot();
-
-        UpdateDirectionArrow();
-
-        if (powerupIndicator != null && powerupIndicator.activeSelf)
-            powerupIndicator.transform.position = transform.position + Vector3.down * 0.5f;
-
-        if (transform.position.y < -10f)
-            ResetPlayer();
+        if (transform.position.y < -10f) ResetPlayer();
     }
 
     private void FixedUpdate()
     {
-        if (playerRb == null || focalPoint == null) return;
+        if (body == null) return;
 
-        Vector3 forward = Vector3.ProjectOnPlane(focalPoint.transform.forward, Vector3.up).normalized;
-        // A/D rotates the Focal Point; W/S moves along its horizontal forward axis.
-        Vector3 moveDirection = forward * moveInput.y;
-        float currentMaxSpeed = playerSpeed * (hasPowerup ? speedBoostMultiplier : 1f);
-        Vector3 targetVelocity = moveDirection * currentMaxSpeed;
-        Vector3 currentVelocity = playerRb.linearVelocity;
-        Vector3 currentPlanarVelocity = new Vector3(currentVelocity.x, 0f, currentVelocity.z);
-        float response = moveDirection.sqrMagnitude > 0f ? acceleration : braking;
-        Vector3 velocityChange = Vector3.ClampMagnitude(targetVelocity - currentPlanarVelocity, response * Time.fixedDeltaTime);
-        playerRb.AddForce(velocityChange, ForceMode.VelocityChange);
-
-        if (jumpRequested)
+        if (aimReference != null)
         {
-            jumpRequested = false;
-            if (IsGrounded())
-                playerRb.AddForce(Vector3.up * jumpImpulse, ForceMode.Impulse);
+            Vector3 forward = Vector3.ProjectOnPlane(aimReference.forward, Vector3.up).normalized;
+            Vector3 moveDirection = forward * moveInput.y;
+            float maxSpeed = playerSpeed * (abilities != null ? abilities.SpeedMultiplier : 1f);
+            Vector3 targetVelocity = moveDirection * maxSpeed;
+            Vector3 currentVelocity = body.linearVelocity;
+            Vector3 planarVelocity = new Vector3(currentVelocity.x, 0f, currentVelocity.z);
+            float response = moveDirection.sqrMagnitude > 0f ? acceleration : braking;
+            Vector3 velocityChange = Vector3.ClampMagnitude(targetVelocity - planarVelocity, response * Time.fixedDeltaTime);
+            body.AddForce(velocityChange, ForceMode.VelocityChange);
         }
+
+        if (!jumpRequested) return;
+        jumpRequested = false;
+        if (IsGrounded()) body.AddForce(Vector3.up * jumpImpulse, ForceMode.Impulse);
     }
 
     private bool IsGrounded()
     {
-        SphereCollider sphere = GetComponent<SphereCollider>();
-        float scaledRadius = sphere != null ? sphere.radius * Mathf.Abs(transform.lossyScale.y) : groundCheckDistance;
+        float scaledRadius = sphereCollider != null
+            ? sphereCollider.radius * Mathf.Abs(transform.lossyScale.y)
+            : groundCheckDistance;
         float checkDistance = Mathf.Max(groundCheckDistance, scaledRadius + 0.2f);
         return Physics.Raycast(transform.position, Vector3.down, checkDistance,
             Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
@@ -164,7 +128,6 @@ public class PlayerController : MonoBehaviour
     {
         Keyboard keyboard = Keyboard.current;
         if (keyboard == null) return;
-
         if (keyboard.digit1Key.wasPressedThisFrame) SetBallSize(0);
         else if (keyboard.digit2Key.wasPressedThisFrame) SetBallSize(1);
         else if (keyboard.digit3Key.wasPressedThisFrame) SetBallSize(2);
@@ -172,16 +135,15 @@ public class PlayerController : MonoBehaviour
 
     private void SetBallSize(int size)
     {
-        if (playerRb == null) return;
-
+        if (body == null) return;
         switch (size)
         {
-            case 0: // Agile and smaller: easier to steer through gaps.
+            case 0:
                 transform.localScale = originalScale * 0.78f;
                 playerSpeed = 8f;
                 acceleration = 32f;
                 braking = 38f;
-                playerRb.mass = 0.75f;
+                body.mass = 0.75f;
                 ballSizeLabel = "PEQUEÑA · ÁGIL";
                 break;
             case 1:
@@ -189,262 +151,39 @@ public class PlayerController : MonoBehaviour
                 playerSpeed = originalSpeed;
                 acceleration = originalAcceleration;
                 braking = originalBraking;
-                playerRb.mass = 1f;
+                body.mass = 1f;
                 ballSizeLabel = "MEDIANA · NORMAL";
                 break;
-            default: // Larger and heavier: slower to accelerate and turn.
+            default:
                 transform.localScale = originalScale * 1.24f;
                 playerSpeed = 4.8f;
                 acceleration = 14f;
                 braking = 18f;
-                playerRb.mass = 1.8f;
+                body.mass = 1.8f;
                 ballSizeLabel = "GRANDE · PESADA";
                 break;
         }
 
-        playerRb.linearVelocity = Vector3.zero;
-        playerRb.angularVelocity = Vector3.zero;
-    }
-
-    private void CreateDirectionArrow()
-    {
-        directionArrow = new GameObject("Direction Chevrons").transform;
-
-        Shader arrowShader = Shader.Find("Universal Render Pipeline/Unlit");
-        if (arrowShader == null) arrowShader = Shader.Find("Unlit/Color");
-        directionArrowMaterial = new Material(arrowShader);
-        directionArrowMaterial.color = new Color(0.2f, 0.95f, 0.84f, 1f);
-        CreateArrowSegment("Front Chevron Left", new Vector3(-0.3f, 0f, -0.08f), new Vector3(0f, 0f, 0.16f));
-        CreateArrowSegment("Front Chevron Right", new Vector3(0f, 0f, 0.16f), new Vector3(0.3f, 0f, -0.08f));
-        CreateArrowSegment("Rear Chevron Left", new Vector3(-0.3f, 0f, -0.36f), new Vector3(0f, 0f, -0.12f));
-        CreateArrowSegment("Rear Chevron Right", new Vector3(0f, 0f, -0.12f), new Vector3(0.3f, 0f, -0.36f));
-    }
-
-    private void CreateArrowSegment(string segmentName, Vector3 start, Vector3 end)
-    {
-        GameObject segment = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        segment.name = segmentName;
-        segment.transform.SetParent(directionArrow, false);
-        segment.transform.localPosition = (start + end) * 0.5f;
-        Vector3 direction = end - start;
-        segment.transform.localRotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
-        segment.transform.localScale = new Vector3(0.095f, 0.035f, direction.magnitude);
-        Destroy(segment.GetComponent<Collider>());
-
-        MeshRenderer renderer = segment.GetComponent<MeshRenderer>();
-        renderer.sharedMaterial = directionArrowMaterial;
-        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        renderer.receiveShadows = false;
-        renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
-        renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
-        renderer.renderingLayerMask = uint.MaxValue;
-
-        // Keep the floor marker readable from the gameplay camera even when the ground depth buffer covers it.
-        renderer.material.renderQueue = 4000;
-        renderer.material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
-        renderer.material.SetInt("_ZWrite", 0);
-    }
-
-    private void UpdateDirectionArrow()
-    {
-        if (directionArrow == null || focalPoint == null) return;
-        Vector3 forward = Vector3.ProjectOnPlane(focalPoint.transform.forward, Vector3.up).normalized;
-        SphereCollider sphere = GetComponent<SphereCollider>();
-        float radius = sphere != null ? sphere.radius * Mathf.Abs(transform.lossyScale.x) : arrowForwardOffset;
-        float forwardOffset = Mathf.Max(arrowForwardOffset, radius + 0.28f);
-        Vector3 arrowPosition = transform.position + forward * forwardOffset;
-        if (Physics.Raycast(arrowPosition + Vector3.up * 2f, Vector3.down, out RaycastHit groundHit,
-                6f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
-            arrowPosition = groundHit.point + Vector3.up * arrowGroundOffset;
-        else
-            arrowPosition += Vector3.down * 0.72f;
-
-        directionArrow.SetPositionAndRotation(arrowPosition, Quaternion.LookRotation(forward, Vector3.up));
-    }
-
-    private void OnTriggerEnter(Collider other)
-    {
-        if (other.CompareTag("Powerup"))
-        {
-            RapidFirePickup rapidFire = other.GetComponent<RapidFirePickup>();
-            Destroy(other.gameObject);
-
-            if (rapidFire != null)
-            {
-                rapidFireExpiresAt = Time.time + rapidFireDuration;
-                nextShotAt = Time.time;
-                ShowPickupFeedback("¡DISPARO POTENCIADO!", new Color(0.15f, 0.9f, 1f));
-                return;
-            }
-
-            hasPowerup = true;
-            powerupExpiresAt = Time.time + powerupDuration;
-            ShowPickupFeedback("¡IMPULSO ACTIVADO!", new Color(1f, 0.57f, 0.12f));
-
-            if (powerupIndicator != null)
-                powerupIndicator.SetActive(true);
-
-            if (powerupRoutine != null)
-                StopCoroutine(powerupRoutine);
-            powerupRoutine = StartCoroutine(PowerupCountdownRoutine());
-        }
-    }
-
-    private void ShowPickupFeedback(string message, Color color)
-    {
-        if (pickupFeedbackRoutine != null)
-            StopCoroutine(pickupFeedbackRoutine);
-        pickupFeedbackRoutine = StartCoroutine(PickupFeedbackRoutine(message, color));
-    }
-
-    private IEnumerator PickupFeedbackRoutine(string message, Color color)
-    {
-        if (playerRenderer != null && playerRenderer.material.HasProperty("_BaseColor"))
-            playerRenderer.material.SetColor("_BaseColor", color);
-        else if (playerRenderer != null)
-            playerRenderer.material.color = color;
-
-        float elapsed = 0f;
-        while (elapsed < 1.1f)
-        {
-            elapsed += Time.deltaTime;
-            if (playerRenderer != null)
-            {
-                float pulse = 0.65f + Mathf.Sin(elapsed * 16f) * 0.2f;
-                Color pulseColor = Color.Lerp(originalBallColor, color, pulse);
-                if (playerRenderer.material.HasProperty("_BaseColor"))
-                    playerRenderer.material.SetColor("_BaseColor", pulseColor);
-                else
-                    playerRenderer.material.color = pulseColor;
-            }
-            yield return null;
-        }
-
-        if (playerRenderer != null)
-        {
-            if (playerRenderer.material.HasProperty("_BaseColor"))
-                playerRenderer.material.SetColor("_BaseColor", originalBallColor);
-            else
-                playerRenderer.material.color = originalBallColor;
-        }
-        pickupFeedbackRoutine = null;
-    }
-
-    private void TryFireRapidShot()
-    {
-        if (Time.time < nextShotAt || focalPoint == null) return;
-        Keyboard keyboard = Keyboard.current;
-        Mouse mouse = Mouse.current;
-        if ((keyboard == null || !keyboard.fKey.isPressed) && (mouse == null || !mouse.leftButton.isPressed)) return;
-
-        Vector3 forward = Vector3.ProjectOnPlane(focalPoint.transform.forward, Vector3.up).normalized;
-        Vector3 goalDirection = (transform.position.z >= 0f ? Vector3.back : Vector3.forward);
-        Vector3 shotDirection = Vector3.Slerp(forward, goalDirection, 0.7f).normalized;
-        SphereCollider sphere = GetComponent<SphereCollider>();
-        float radius = sphere != null ? sphere.radius * Mathf.Abs(transform.lossyScale.x) : 0.75f;
-        // Start the visible shot just ahead of the ball, then resolve its impact
-        // back onto the ball so the power kicks the ball toward the far goal.
-        Vector3 spawnPosition = transform.position + shotDirection * (radius + 0.45f) + Vector3.up * 0.1f;
-
-        EnsureProjectileMaterial();
-
-        int count = Mathf.Max(1, projectilesPerBurst);
-        for (int i = 0; i < count; i++)
-        {
-            float spread = count == 1 ? 0f : Mathf.Lerp(-projectileSpreadDegrees, projectileSpreadDegrees, i / (float)(count - 1));
-            Vector3 pelletDirection = Quaternion.AngleAxis(spread, Vector3.up) * shotDirection;
-            Vector3 pelletPosition = spawnPosition + Quaternion.AngleAxis(spread, Vector3.up) * shotDirection * (i * 0.035f);
-            SpawnProjectilePellet(pelletPosition, pelletDirection);
-        }
-        nextShotAt = Time.time + rapidFireInterval;
-    }
-
-    private void EnsureProjectileMaterial()
-    {
-        if (projectileMaterial != null) return;
-        Shader projectileShader = Shader.Find("Universal Render Pipeline/Unlit");
-        if (projectileShader == null) projectileShader = Shader.Find("Unlit/Color");
-        projectileMaterial = new Material(projectileShader) { color = new Color(0.3f, 0.95f, 1f) };
-        if (projectileMaterial.HasProperty("_EmissionColor"))
-        {
-            projectileMaterial.EnableKeyword("_EMISSION");
-            projectileMaterial.SetColor("_EmissionColor", new Color(0.1f, 0.8f, 1f) * 2f);
-        }
-    }
-
-    private void SpawnProjectilePellet(Vector3 position, Vector3 direction)
-    {
-        GameObject projectile = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        projectile.name = "Rapid Fire Pellet";
-        projectile.transform.position = position;
-        projectile.transform.localScale = Vector3.one * 0.2f;
-        projectile.GetComponent<SphereCollider>().isTrigger = true;
-        projectile.GetComponent<Renderer>().sharedMaterial = projectileMaterial;
-
-        Rigidbody projectileBody = projectile.AddComponent<Rigidbody>();
-        projectileBody.useGravity = false;
-        projectileBody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-        projectileBody.linearVelocity = direction * projectileSpeed;
-        SkyballProjectile shot = projectile.AddComponent<SkyballProjectile>();
-        shot.Initialize(SkyballGameBall.Instance != null ? SkyballGameBall.Instance.Body : null, direction, shotImpulse);
-        Destroy(projectile, 2.5f);
-    }
-
-    public void HideForGoalExplosion()
-    {
-        if (playerRenderer != null) playerRenderer.enabled = false;
-        if (directionArrow != null) directionArrow.gameObject.SetActive(false);
-    }
-
-    private void OnCollisionEnter(Collision collision)
-    {
-        if (collision.gameObject.CompareTag("Enemy") && hasPowerup)
-        {
-            Rigidbody enemyRigidbody = collision.gameObject.GetComponent<Rigidbody>();
-            if (enemyRigidbody == null) return;
-
-            Vector3 awayFromPlayer = (collision.transform.position - transform.position).normalized;
-            enemyRigidbody.AddForce(awayFromPlayer * powerupStrength, ForceMode.Impulse);
-        }
-    }
-
-    private IEnumerator PowerupCountdownRoutine()
-    {
-        yield return new WaitForSeconds(powerupDuration);
-        hasPowerup = false;
-        powerupExpiresAt = 0f;
-        if (powerupIndicator != null)
-            powerupIndicator.SetActive(false);
-        powerupRoutine = null;
+        body.linearVelocity = Vector3.zero;
+        body.angularVelocity = Vector3.zero;
     }
 
     public void ResetPlayer()
     {
         transform.SetPositionAndRotation(startPosition, startRotation);
         jumpRequested = false;
-        if (playerRb != null)
+        if (body != null)
         {
-            playerRb.linearVelocity = Vector3.zero;
-            playerRb.angularVelocity = Vector3.zero;
+            body.linearVelocity = Vector3.zero;
+            body.angularVelocity = Vector3.zero;
         }
-        if (playerRenderer != null) playerRenderer.enabled = true;
-        if (directionArrow != null) directionArrow.gameObject.SetActive(true);
     }
 
     public void ResetForGoal()
     {
         ResetPlayer();
         SetBallSize(1);
-        rapidFireExpiresAt = 0f;
-        powerupExpiresAt = 0f;
-        nextShotAt = 0f;
-        hasPowerup = false;
-        if (powerupRoutine != null)
-        {
-            StopCoroutine(powerupRoutine);
-            powerupRoutine = null;
-        }
-        if (powerupIndicator != null)
-            powerupIndicator.SetActive(false);
+        if (abilities != null) abilities.ResetAbilities();
+        if (directionIndicator != null) directionIndicator.SetVisible(true);
     }
 }

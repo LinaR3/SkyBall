@@ -11,7 +11,6 @@ public class RotateCamera : MonoBehaviour
     public static RotateCamera Instance { get; private set; }
     public bool IsFollowCamera { get; private set; }
 
-    private InputSystem_Actions controls;
     private Transform gameplayCamera;
     private Transform player;
     private Vector3 orbitLocalPosition;
@@ -20,7 +19,6 @@ public class RotateCamera : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        EnsureControls();
         Camera mainCamera = Camera.main;
         if (mainCamera != null)
         {
@@ -30,36 +28,18 @@ public class RotateCamera : MonoBehaviour
         }
     }
 
-    private void OnEnable()
+    private void Update()
     {
-        EnsureControls();
-        controls.Player.Enable();
-    }
+        float horizontalInput = PlayerController.Instance != null ? PlayerController.Instance.HorizontalInput : 0f;
+        transform.Rotate(Vector3.up, horizontalInput * rotationSpeed * Time.deltaTime);
 
-    private void OnDisable()
-    {
-        if (controls != null)
-            controls.Player.Disable();
+        if (Keyboard.current != null && Keyboard.current.cKey.wasPressedThisFrame)
+            ToggleCameraMode();
     }
 
     private void OnDestroy()
     {
         if (Instance == this) Instance = null;
-        if (controls != null)
-        {
-            controls.Dispose();
-            controls = null;
-        }
-    }
-
-    private void Update()
-    {
-        if (controls == null) return;
-        Vector2 moveInput = controls.Player.Move.ReadValue<Vector2>();
-        transform.Rotate(Vector3.up, moveInput.x * rotationSpeed * Time.deltaTime);
-
-        if (Keyboard.current != null && Keyboard.current.cKey.wasPressedThisFrame)
-            ToggleCameraMode();
     }
 
     private void LateUpdate()
@@ -89,9 +69,4 @@ public class RotateCamera : MonoBehaviour
         }
     }
 
-    private void EnsureControls()
-    {
-        if (controls == null)
-            controls = new InputSystem_Actions();
-    }
 }
