@@ -94,7 +94,9 @@ public sealed class SkyballMatchManager : MonoBehaviour
         GameObject burst = new GameObject("Goal Ball Explosion");
         burst.transform.position = position;
         ParticleSystem particles = burst.AddComponent<ParticleSystem>();
+        particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         var main = particles.main;
+        main.playOnAwake = false;
         main.duration = 0.18f;
         main.loop = false;
         main.startLifetime = new ParticleSystem.MinMaxCurve(0.45f, 0.9f);

@@ -11,6 +11,8 @@ public sealed class SpawnManager : MonoBehaviour
     [SerializeField, Min(1)] private int startingEnemyCount = 8;
     [SerializeField, Min(1)] private int enemiesAddedPerWave = 2;
     [SerializeField, Min(0f)] private float minimumPlayerDistance = 3f;
+    [SerializeField, Min(1f)] private float powerupSpawnInterval = 8f;
+    [SerializeField, Min(1)] private int maximumActivePowerups = 3;
 
     [SerializeField] private int enemyCount;
     [SerializeField] private int waveNumber = 1;
@@ -20,6 +22,8 @@ public sealed class SpawnManager : MonoBehaviour
 
     private readonly List<Enemy> activeEnemies = new List<Enemy>();
     private bool waveActive;
+    private float nextPowerupSpawnTime;
+    private bool spawnRapidFireNext;
 
     private void Awake()
     {
@@ -38,6 +42,7 @@ public sealed class SpawnManager : MonoBehaviour
         waveNumber = Mathf.Max(1, waveNumber);
         SpawnEnemyWave(Mathf.Max(1, startingEnemyCount));
         SpawnPowerup();
+        nextPowerupSpawnTime = Time.time + Mathf.Max(1f, powerupSpawnInterval);
     }
 
     private void OnDestroy()
@@ -49,12 +54,17 @@ public sealed class SpawnManager : MonoBehaviour
     {
         activeEnemies.RemoveAll(enemy => enemy == null);
         enemyCount = activeEnemies.Count;
-        if (!waveActive || enemyCount > 0) return;
+        if (waveActive && enemyCount == 0)
+        {
+            waveNumber++;
+            int nextWaveCount = Mathf.Max(1, startingEnemyCount + (waveNumber - 1) * Mathf.Max(1, enemiesAddedPerWave));
+            SpawnEnemyWave(nextWaveCount);
+        }
 
-        waveNumber++;
-        int nextWaveCount = Mathf.Max(1, startingEnemyCount + (waveNumber - 1) * Mathf.Max(1, enemiesAddedPerWave));
-        SpawnEnemyWave(nextWaveCount);
-        SpawnPowerup();
+        if (Time.time < nextPowerupSpawnTime) return;
+        nextPowerupSpawnTime = Time.time + Mathf.Max(1f, powerupSpawnInterval);
+        if (GameObject.FindGameObjectsWithTag("Powerup").Length < Mathf.Max(1, maximumActivePowerups))
+            SpawnPowerup();
     }
 
     private void SpawnEnemyWave(int count)
@@ -88,11 +98,12 @@ public sealed class SpawnManager : MonoBehaviour
 
     private void SpawnPowerup()
     {
-        if (powerupPrefab != null)
+        if (spawnRapidFireNext || powerupPrefab == null)
+            SpawnRapidFirePowerup();
+        else
             Instantiate(powerupPrefab, GenerateSpawnPosition(), powerupPrefab.transform.rotation);
 
-        if (waveNumber % 2 == 0)
-            SpawnRapidFirePowerup();
+        spawnRapidFireNext = !spawnRapidFireNext;
     }
 
     private void SpawnRapidFirePowerup()
