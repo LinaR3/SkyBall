@@ -21,6 +21,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float rapidFireDuration = 1f;
     [SerializeField] private float rapidFireInterval = 0.09f;
     [SerializeField] private float projectileSpeed = 24f;
+    [SerializeField] private float shotImpulse = 9f;
 
     private InputSystem_Actions controls;
     private Rigidbody playerRb;
@@ -290,9 +291,13 @@ public class PlayerController : MonoBehaviour
         if ((keyboard == null || !keyboard.fKey.isPressed) && (mouse == null || !mouse.leftButton.isPressed)) return;
 
         Vector3 forward = Vector3.ProjectOnPlane(focalPoint.transform.forward, Vector3.up).normalized;
+        Vector3 goalDirection = (transform.position.z >= 0f ? Vector3.back : Vector3.forward);
+        Vector3 shotDirection = Vector3.Slerp(forward, goalDirection, 0.7f).normalized;
         SphereCollider sphere = GetComponent<SphereCollider>();
         float radius = sphere != null ? sphere.radius * Mathf.Abs(transform.lossyScale.x) : 0.75f;
-        Vector3 spawnPosition = transform.position + forward * (radius + 0.28f) + Vector3.up * 0.1f;
+        // Start the visible shot just ahead of the ball, then resolve its impact
+        // back onto the ball so the power kicks the ball toward the far goal.
+        Vector3 spawnPosition = transform.position + shotDirection * (radius + 0.45f) + Vector3.up * 0.1f;
 
         GameObject projectile = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         projectile.name = "Rapid Fire Orb";
@@ -315,8 +320,9 @@ public class PlayerController : MonoBehaviour
         Rigidbody projectileBody = projectile.AddComponent<Rigidbody>();
         projectileBody.useGravity = false;
         projectileBody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-        projectileBody.linearVelocity = forward * projectileSpeed;
-        projectile.AddComponent<SkyballProjectile>();
+        projectileBody.linearVelocity = shotDirection * projectileSpeed;
+        SkyballProjectile shot = projectile.AddComponent<SkyballProjectile>();
+        shot.Initialize(playerRb, shotDirection, shotImpulse);
         Destroy(projectile, 2.5f);
         nextShotAt = Time.time + rapidFireInterval;
     }
