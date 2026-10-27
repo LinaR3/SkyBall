@@ -135,7 +135,7 @@ public sealed class SkyballMatchHud : MonoBehaviour
         if (!showControls) return;
 
         float panelWidth = Mathf.Min(310f, Screen.width - margin * 2f);
-        const float panelHeight = 256f;
+        const float panelHeight = 220f;
         float panelX = Screen.width - margin - panelWidth;
         float panelY = button.yMax + 8f;
         if (panelY + panelHeight > Screen.height - margin)
@@ -149,14 +149,14 @@ public sealed class SkyballMatchHud : MonoBehaviour
             "CÓMO JUGAR", helpTitleStyle);
 
         float rowY = panel.y + 50f;
-        DrawControlRow(panel, rowY, "W / S", "Avanzar y retroceder");
-        DrawControlRow(panel, rowY + 29f, "A / D", "Girar");
-        DrawControlRow(panel, rowY + 58f, "ESPACIO", "Saltar");
-        DrawControlRow(panel, rowY + 87f, "C", "Cambiar cámara");
-        DrawControlRow(panel, rowY + 116f, "1 / 2 / 3", "Cambiar tamaño");
-        DrawControlRow(panel, rowY + 145f, "F / CLIC", "Disparar con Ráfaga");
+        DrawControlRow(panel, rowY, "W / S", "Mover hacia delante / atrás");
+        DrawControlRow(panel, rowY + 30f, "A / D", "Girar");
+        DrawControlRow(panel, rowY + 60f, "ESPACIO", "Saltar");
+        DrawControlRow(panel, rowY + 90f, "C", "Cambiar cámara");
+        DrawControlRow(panel, rowY + 127f, "1 / 2 / 3", "Tamaño de la bola");
+        DrawControlRow(panel, rowY + 157f, "F / CLIC", "Disparar (con Ráfaga)");
         GUI.color = new Color(1f, 1f, 1f, 0.72f);
-        GUI.Label(new Rect(panel.x + 16f, rowY + 180f, panel.width - 32f, 28f),
+        GUI.Label(new Rect(panel.x + 16f, rowY + 189f, panel.width - 32f, 22f),
             "Impulso: toca a los rivales para alejarlos.", helpTextStyle);
         GUI.color = Color.white;
     }

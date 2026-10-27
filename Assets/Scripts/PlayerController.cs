@@ -4,6 +4,9 @@ using UnityEngine.InputSystem;
 /// <summary>Reads player input and controls movement, jumping, and size.</summary>
 public sealed class PlayerController : MonoBehaviour
 {
+    private const float ArenaHalfWidth = 7f;
+    private const float ArenaHalfLength = 8f;
+
     public static PlayerController Instance { get; private set; }
 
     [SerializeField] private float playerSpeed = 8f;
@@ -118,9 +121,29 @@ public sealed class PlayerController : MonoBehaviour
             body.AddForce(velocityChange, ForceMode.VelocityChange);
         }
 
-        if (!jumpRequested) return;
-        jumpRequested = false;
-        if (IsGrounded()) body.AddForce(Vector3.up * jumpImpulse, ForceMode.Impulse);
+        if (jumpRequested)
+        {
+            jumpRequested = false;
+            if (IsGrounded()) body.AddForce(Vector3.up * jumpImpulse, ForceMode.Impulse);
+        }
+
+        KeepPlayerInsideArena();
+    }
+
+    private void KeepPlayerInsideArena()
+    {
+        Vector3 position = body.position;
+        Vector3 boundedPosition = new Vector3(
+            Mathf.Clamp(position.x, -ArenaHalfWidth, ArenaHalfWidth),
+            position.y,
+            Mathf.Clamp(position.z, -ArenaHalfLength, ArenaHalfLength));
+        if (boundedPosition == position) return;
+
+        body.position = boundedPosition;
+        Vector3 velocity = body.linearVelocity;
+        if (!Mathf.Approximately(position.x, boundedPosition.x)) velocity.x = 0f;
+        if (!Mathf.Approximately(position.z, boundedPosition.z)) velocity.z = 0f;
+        body.linearVelocity = velocity;
     }
 
     private bool IsGrounded()

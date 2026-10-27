@@ -5,7 +5,7 @@ SkyBall is a single-player arcade sports prototype built with Unity 6.3 LTS. Mov
 ## Gameplay
 
 - Guide the separate match ball toward a goal; goals update the blue or orange score and reset play after a short pause.
-- Survive enemy waves. Each wave adds pursuers up to a limit of seven, keeping the arena playable.
+- Survive enemy waves. Each wave adds pursuers up to a limit of five, keeping the arena playable.
 - Change the player ball's size to trade agility for weight.
 - Switch between arena and follow camera views.
 - Collect two power-ups. One boosts movement and knocks enemies away on contact; the other enables rapid fire, whose projectiles push the match ball or enemies.

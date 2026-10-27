@@ -8,9 +8,9 @@ public sealed class SpawnManager : MonoBehaviour
     [SerializeField] private GameObject enemyPrefab;
     [SerializeField] private GameObject powerupPrefab;
     [SerializeField, Min(1f)] private float spawnRange = 7.2f;
-    [SerializeField, Min(1)] private int startingEnemyCount = 4;
+    [SerializeField, Min(1)] private int startingEnemyCount = 3;
     [SerializeField, Min(1)] private int enemiesAddedPerWave = 1;
-    [SerializeField, Min(1)] private int maximumEnemyCount = 7;
+    [SerializeField, Min(1)] private int maximumEnemyCount = 5;
     [SerializeField, Min(0f)] private float minimumPlayerDistance = 3f;
     [SerializeField, Min(1f)] private float powerupSpawnInterval = 8f;
     [SerializeField, Min(1)] private int maximumActivePowerups = 3;
@@ -77,6 +77,9 @@ public sealed class SpawnManager : MonoBehaviour
             Enemy enemy = Instantiate(enemyPrefab, GenerateSpawnPosition(), enemyPrefab.transform.rotation)
                 .GetComponent<Enemy>();
             if (enemy == null) continue;
+            float angle = i * Mathf.PI * 2f / count;
+            Vector3 pursuitOffset = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 2.15f;
+            enemy.SetPursuitOffset(pursuitOffset);
             activeEnemies.Add(enemy);
         }
 
