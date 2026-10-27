@@ -4,8 +4,8 @@ using UnityEngine.InputSystem;
 public class RotateCamera : MonoBehaviour
 {
     public float rotationSpeed = 150f;
-    [SerializeField] private float followDistance = 8.5f;
-    [SerializeField] private float followHeight = 6.5f;
+    [SerializeField] private float followDistance = 10.5f;
+    [SerializeField] private float followHeight = 7.5f;
     [SerializeField] private float followSmoothing = 7f;
 
     public static RotateCamera Instance { get; private set; }

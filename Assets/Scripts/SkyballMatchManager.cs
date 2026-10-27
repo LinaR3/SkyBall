@@ -179,8 +179,8 @@ public sealed class SkyballMatchManager : MonoBehaviour
 
     private void CreateGoals()
     {
-        CreateGoal("Blue Goal", true, 8.35f, new Color(0.08f, 0.65f, 1f));
-        CreateGoal("Orange Goal", false, -8.35f, new Color(1f, 0.36f, 0.08f));
+        CreateGoal("Blue Goal", true, 10.2f, new Color(0.08f, 0.65f, 1f));
+        CreateGoal("Orange Goal", false, -10.2f, new Color(1f, 0.36f, 0.08f));
     }
 
     private void CreateArenaCourt()
@@ -236,15 +236,15 @@ public sealed class SkyballMatchManager : MonoBehaviour
 
         float y = islandRenderer.bounds.max.y + 0.045f;
         courtLineMaterial = CreateUnlitMaterial(new Color(0.83f, 0.93f, 0.83f));
-        CreateRectLine("Touchline", -6.2f, -6.9f, 6.2f, 6.9f, y);
-        CreateLine("Halfway Line", new[] { new Vector3(-6.2f, y, 0f), new Vector3(6.2f, y, 0f) }, 0.055f);
-        CreateCircleLine("Center Circle", Vector3.zero, 1.55f, y);
+        CreateRectLine("Touchline", -7.4f, -8.6f, 7.4f, 8.6f, y);
+        CreateLine("Halfway Line", new[] { new Vector3(-7.4f, y, 0f), new Vector3(7.4f, y, 0f) }, 0.055f);
+        CreateCircleLine("Center Circle", Vector3.zero, 1.75f, y);
 
         for (int direction = -1; direction <= 1; direction += 2)
         {
             float sign = direction;
-            CreateRectLine("Penalty Area " + direction, -3.4f, sign * 4.45f, 3.4f, sign * 6.9f, y);
-            CreateRectLine("Goal Area " + direction, -1.8f, sign * 5.55f, 1.8f, sign * 6.9f, y);
+            CreateRectLine("Penalty Area " + direction, -4f, sign * 5.3f, 4f, sign * 8.6f, y);
+            CreateRectLine("Goal Area " + direction, -2.1f, sign * 6.9f, 2.1f, sign * 8.6f, y);
         }
     }
 

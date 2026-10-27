@@ -4,7 +4,7 @@ public class SpawnManager : MonoBehaviour
 {
     [SerializeField] private GameObject enemyPrefab;
     [SerializeField] private GameObject powerupPrefab;
-    [SerializeField] private float spawnRange = 9f;
+    [SerializeField] private float spawnRange = 10.5f;
 
     public int enemyCount;
     public int waveNumber;
@@ -32,7 +32,7 @@ public class SpawnManager : MonoBehaviour
     private Vector3 GenerateSpawnPosition()
     {
         return new Vector3(Random.Range(-spawnRange, spawnRange), 0f,
-            Random.Range(-spawnRange, spawnRange));
+            Random.Range(-7.8f, 7.8f));
     }
 
     private void SpawnEnemyWave(int enemiesToSpawn)
