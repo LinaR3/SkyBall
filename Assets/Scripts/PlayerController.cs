@@ -1,8 +1,11 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class PlayerController : MonoBehaviour
 {
+    public static PlayerController Instance { get; private set; }
+
     public float playerSpeed = 6.5f;
     [SerializeField] private float acceleration = 24f;
     [SerializeField] private float braking = 30f;
@@ -15,6 +18,9 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float groundCheckDistance = 0.9f;
     [SerializeField] private float arrowForwardOffset = 1f;
     [SerializeField] private float arrowGroundOffset = 0.075f;
+    [SerializeField] private float rapidFireDuration = 1f;
+    [SerializeField] private float rapidFireInterval = 0.09f;
+    [SerializeField] private float projectileSpeed = 24f;
 
     private InputSystem_Actions controls;
     private Rigidbody playerRb;
@@ -26,11 +32,29 @@ public class PlayerController : MonoBehaviour
     private Coroutine powerupRoutine;
     private Vector3 startPosition;
     private Quaternion startRotation;
+    private Renderer playerRenderer;
+    private Vector3 originalScale;
+    private float originalSpeed;
+    private float originalAcceleration;
+    private float originalBraking;
+    private float rapidFireExpiresAt;
+    private float nextShotAt;
+    private string ballSizeLabel = "MEDIANA";
+    private Material projectileMaterial;
+
+    public float RapidFireRemaining => Mathf.Max(0f, rapidFireExpiresAt - Time.time);
+    public string BallSizeLabel => ballSizeLabel;
 
     private void Awake()
     {
+        Instance = this;
         controls = new InputSystem_Actions();
         playerRb = GetComponent<Rigidbody>();
+        playerRenderer = GetComponent<Renderer>();
+        originalScale = transform.localScale;
+        originalSpeed = playerSpeed;
+        originalAcceleration = acceleration;
+        originalBraking = braking;
         focalPoint = GameObject.Find("Focal Point");
         startPosition = transform.position;
         startRotation = transform.rotation;
@@ -60,10 +84,13 @@ public class PlayerController : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (Instance == this) Instance = null;
         if (directionArrow != null)
             Destroy(directionArrow.gameObject);
         if (directionArrowMaterial != null)
             Destroy(directionArrowMaterial);
+        if (projectileMaterial != null)
+            Destroy(projectileMaterial);
         if (controls != null)
         {
             controls.Dispose();
@@ -79,6 +106,10 @@ public class PlayerController : MonoBehaviour
             if (controls.Player.Jump.WasPressedThisFrame())
                 jumpRequested = true;
         }
+
+        ReadGameplayShortcuts();
+        if (RapidFireRemaining > 0f)
+            TryFireRapidShot();
 
         UpdateDirectionArrow();
 
@@ -114,8 +145,57 @@ public class PlayerController : MonoBehaviour
 
     private bool IsGrounded()
     {
-        return Physics.Raycast(transform.position, Vector3.down, groundCheckDistance,
+        SphereCollider sphere = GetComponent<SphereCollider>();
+        float scaledRadius = sphere != null ? sphere.radius * Mathf.Abs(transform.lossyScale.y) : groundCheckDistance;
+        float checkDistance = Mathf.Max(groundCheckDistance, scaledRadius + 0.2f);
+        return Physics.Raycast(transform.position, Vector3.down, checkDistance,
             Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+    }
+
+    private void ReadGameplayShortcuts()
+    {
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard == null) return;
+
+        if (keyboard.digit1Key.wasPressedThisFrame) SetBallSize(0);
+        else if (keyboard.digit2Key.wasPressedThisFrame) SetBallSize(1);
+        else if (keyboard.digit3Key.wasPressedThisFrame) SetBallSize(2);
+    }
+
+    private void SetBallSize(int size)
+    {
+        if (playerRb == null) return;
+
+        switch (size)
+        {
+            case 0: // Agile and smaller: easier to steer through gaps.
+                transform.localScale = originalScale * 0.78f;
+                playerSpeed = 8f;
+                acceleration = 32f;
+                braking = 38f;
+                playerRb.mass = 0.75f;
+                ballSizeLabel = "PEQUEÑA · ÁGIL";
+                break;
+            case 1:
+                transform.localScale = originalScale;
+                playerSpeed = originalSpeed;
+                acceleration = originalAcceleration;
+                braking = originalBraking;
+                playerRb.mass = 1f;
+                ballSizeLabel = "MEDIANA · NORMAL";
+                break;
+            default: // Larger and heavier: slower to accelerate and turn.
+                transform.localScale = originalScale * 1.24f;
+                playerSpeed = 4.8f;
+                acceleration = 14f;
+                braking = 18f;
+                playerRb.mass = 1.8f;
+                ballSizeLabel = "GRANDE · PESADA";
+                break;
+        }
+
+        playerRb.linearVelocity = Vector3.zero;
+        playerRb.angularVelocity = Vector3.zero;
     }
 
     private void CreateDirectionArrow()
@@ -161,7 +241,10 @@ public class PlayerController : MonoBehaviour
     {
         if (directionArrow == null || focalPoint == null) return;
         Vector3 forward = Vector3.ProjectOnPlane(focalPoint.transform.forward, Vector3.up).normalized;
-        Vector3 arrowPosition = transform.position + forward * arrowForwardOffset;
+        SphereCollider sphere = GetComponent<SphereCollider>();
+        float radius = sphere != null ? sphere.radius * Mathf.Abs(transform.lossyScale.x) : arrowForwardOffset;
+        float forwardOffset = Mathf.Max(arrowForwardOffset, radius + 0.28f);
+        Vector3 arrowPosition = transform.position + forward * forwardOffset;
         if (Physics.Raycast(arrowPosition + Vector3.up * 2f, Vector3.down, out RaycastHit groundHit,
                 6f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
             arrowPosition = groundHit.point + Vector3.up * arrowGroundOffset;
@@ -175,7 +258,16 @@ public class PlayerController : MonoBehaviour
     {
         if (other.CompareTag("Powerup"))
         {
+            RapidFirePickup rapidFire = other.GetComponent<RapidFirePickup>();
             Destroy(other.gameObject);
+
+            if (rapidFire != null)
+            {
+                rapidFireExpiresAt = Time.time + rapidFireDuration;
+                nextShotAt = Time.time;
+                return;
+            }
+
             hasPowerup = true;
 
             if (powerupIndicator != null)
@@ -185,6 +277,51 @@ public class PlayerController : MonoBehaviour
                 StopCoroutine(powerupRoutine);
             powerupRoutine = StartCoroutine(PowerupCountdownRoutine());
         }
+    }
+
+    private void TryFireRapidShot()
+    {
+        if (Time.time < nextShotAt || focalPoint == null) return;
+        Keyboard keyboard = Keyboard.current;
+        Mouse mouse = Mouse.current;
+        if ((keyboard == null || !keyboard.fKey.isPressed) && (mouse == null || !mouse.leftButton.isPressed)) return;
+
+        Vector3 forward = Vector3.ProjectOnPlane(focalPoint.transform.forward, Vector3.up).normalized;
+        SphereCollider sphere = GetComponent<SphereCollider>();
+        float radius = sphere != null ? sphere.radius * Mathf.Abs(transform.lossyScale.x) : 0.75f;
+        Vector3 spawnPosition = transform.position + forward * (radius + 0.28f) + Vector3.up * 0.1f;
+
+        GameObject projectile = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        projectile.name = "Rapid Fire Orb";
+        projectile.transform.position = spawnPosition;
+        projectile.transform.localScale = Vector3.one * 0.2f;
+        projectile.GetComponent<SphereCollider>().isTrigger = true;
+        if (projectileMaterial == null)
+        {
+            Shader projectileShader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (projectileShader == null) projectileShader = Shader.Find("Unlit/Color");
+            projectileMaterial = new Material(projectileShader) { color = new Color(0.3f, 0.95f, 1f) };
+            if (projectileMaterial.HasProperty("_EmissionColor"))
+            {
+                projectileMaterial.EnableKeyword("_EMISSION");
+                projectileMaterial.SetColor("_EmissionColor", new Color(0.1f, 0.8f, 1f) * 2f);
+            }
+        }
+        projectile.GetComponent<Renderer>().sharedMaterial = projectileMaterial;
+
+        Rigidbody projectileBody = projectile.AddComponent<Rigidbody>();
+        projectileBody.useGravity = false;
+        projectileBody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        projectileBody.linearVelocity = forward * projectileSpeed;
+        projectile.AddComponent<SkyballProjectile>();
+        Destroy(projectile, 2.5f);
+        nextShotAt = Time.time + rapidFireInterval;
+    }
+
+    public void HideForGoalExplosion()
+    {
+        if (playerRenderer != null) playerRenderer.enabled = false;
+        if (directionArrow != null) directionArrow.gameObject.SetActive(false);
     }
 
     private void OnCollisionEnter(Collision collision)
@@ -217,11 +354,16 @@ public class PlayerController : MonoBehaviour
             playerRb.linearVelocity = Vector3.zero;
             playerRb.angularVelocity = Vector3.zero;
         }
+        if (playerRenderer != null) playerRenderer.enabled = true;
+        if (directionArrow != null) directionArrow.gameObject.SetActive(true);
     }
 
     public void ResetForGoal()
     {
         ResetPlayer();
+        SetBallSize(1);
+        rapidFireExpiresAt = 0f;
+        nextShotAt = 0f;
         hasPowerup = false;
         if (powerupRoutine != null)
         {

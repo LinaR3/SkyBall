@@ -12,6 +12,7 @@ public class SkyballGoal : MonoBehaviour
     private void OnTriggerEnter(Collider other)
     {
         if (!other.CompareTag("Player")) return;
-        SkyballMatchManager.Instance?.ScoreGoal(!blueTeamGoal);
+        PlayerController player = other.GetComponent<PlayerController>();
+        SkyballMatchManager.Instance?.ScoreGoal(!blueTeamGoal, other.transform.position, player);
     }
 }
