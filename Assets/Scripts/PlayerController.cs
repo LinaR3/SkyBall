@@ -48,6 +48,9 @@ public class PlayerController : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+        // This controllable object is the ball in this prototype. Keep its
+        // identity distinct from the player avatar to prevent false goals.
+        gameObject.tag = "Ball";
         controls = new InputSystem_Actions();
         playerRb = GetComponent<Rigidbody>();
         playerRenderer = GetComponent<Renderer>();

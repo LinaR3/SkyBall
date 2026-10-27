@@ -11,8 +11,12 @@ public class SkyballGoal : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (!other.CompareTag("Player")) return;
-        PlayerController player = other.GetComponent<PlayerController>();
-        SkyballMatchManager.Instance?.ScoreGoal(!blueTeamGoal, other.transform.position, player);
+        // Only the game ball can score. The controllable player is a separate
+        // object (also tagged Player in the current scene) and must not score.
+        PlayerController player = other.GetComponentInParent<PlayerController>();
+        if (player != null) return;
+        if (!other.CompareTag("Ball")) return;
+
+        SkyballMatchManager.Instance?.ScoreGoal(!blueTeamGoal, other.transform.position, null);
     }
 }
