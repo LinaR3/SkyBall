@@ -6,9 +6,9 @@ public sealed class PlayerController : MonoBehaviour
 {
     public static PlayerController Instance { get; private set; }
 
-    [SerializeField] private float playerSpeed = 6.5f;
-    [SerializeField] private float acceleration = 24f;
-    [SerializeField] private float braking = 30f;
+    [SerializeField] private float playerSpeed = 8f;
+    [SerializeField] private float acceleration = 32f;
+    [SerializeField] private float braking = 38f;
     [SerializeField] private GameObject powerupIndicator;
     [SerializeField] private Transform aimReference;
     [SerializeField] private float jumpImpulse = 5.5f;
@@ -42,6 +42,15 @@ public sealed class PlayerController : MonoBehaviour
         controls = new InputSystem_Actions();
         body = GetComponent<Rigidbody>();
         sphereCollider = GetComponent<SphereCollider>();
+        playerSpeed = Mathf.Max(playerSpeed, 8f);
+        acceleration = Mathf.Max(acceleration, 32f);
+        braking = Mathf.Max(braking, 38f);
+        if (body != null)
+        {
+            body.mass = 2.2f;
+            body.interpolation = RigidbodyInterpolation.Interpolate;
+            body.collisionDetectionMode = CollisionDetectionMode.Continuous;
+        }
         if (aimReference == null)
             Debug.LogError("PlayerController needs an aim reference for movement and shots.", this);
         startPosition = transform.position;
@@ -143,7 +152,7 @@ public sealed class PlayerController : MonoBehaviour
                 playerSpeed = 8f;
                 acceleration = 32f;
                 braking = 38f;
-                body.mass = 0.75f;
+                body.mass = 1.3f;
                 ballSizeLabel = "PEQUEÑA · ÁGIL";
                 break;
             case 1:
@@ -151,7 +160,7 @@ public sealed class PlayerController : MonoBehaviour
                 playerSpeed = originalSpeed;
                 acceleration = originalAcceleration;
                 braking = originalBraking;
-                body.mass = 1f;
+                body.mass = 2.2f;
                 ballSizeLabel = "MEDIANA · NORMAL";
                 break;
             default:
@@ -159,7 +168,7 @@ public sealed class PlayerController : MonoBehaviour
                 playerSpeed = 4.8f;
                 acceleration = 14f;
                 braking = 18f;
-                body.mass = 1.8f;
+                body.mass = 2.8f;
                 ballSizeLabel = "GRANDE · PESADA";
                 break;
         }

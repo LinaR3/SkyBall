@@ -8,8 +8,9 @@ public sealed class SpawnManager : MonoBehaviour
     [SerializeField] private GameObject enemyPrefab;
     [SerializeField] private GameObject powerupPrefab;
     [SerializeField, Min(1f)] private float spawnRange = 7.2f;
-    [SerializeField, Min(1)] private int startingEnemyCount = 8;
-    [SerializeField, Min(1)] private int enemiesAddedPerWave = 2;
+    [SerializeField, Min(1)] private int startingEnemyCount = 4;
+    [SerializeField, Min(1)] private int enemiesAddedPerWave = 1;
+    [SerializeField, Min(1)] private int maximumEnemyCount = 7;
     [SerializeField, Min(0f)] private float minimumPlayerDistance = 3f;
     [SerializeField, Min(1f)] private float powerupSpawnInterval = 8f;
     [SerializeField, Min(1)] private int maximumActivePowerups = 3;
@@ -40,7 +41,7 @@ public sealed class SpawnManager : MonoBehaviour
         }
 
         waveNumber = Mathf.Max(1, waveNumber);
-        SpawnEnemyWave(Mathf.Max(1, startingEnemyCount));
+        SpawnEnemyWave(Mathf.Clamp(startingEnemyCount, 1, Mathf.Max(1, maximumEnemyCount)));
         SpawnPowerup();
         nextPowerupSpawnTime = Time.time + Mathf.Max(1f, powerupSpawnInterval);
     }
@@ -57,7 +58,8 @@ public sealed class SpawnManager : MonoBehaviour
         if (waveActive && enemyCount == 0)
         {
             waveNumber++;
-            int nextWaveCount = Mathf.Max(1, startingEnemyCount + (waveNumber - 1) * Mathf.Max(1, enemiesAddedPerWave));
+            int nextWaveCount = Mathf.Min(Mathf.Max(1, maximumEnemyCount),
+                Mathf.Max(1, startingEnemyCount + (waveNumber - 1) * Mathf.Max(1, enemiesAddedPerWave)));
             SpawnEnemyWave(nextWaveCount);
         }
 

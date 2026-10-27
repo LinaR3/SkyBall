@@ -2,14 +2,20 @@ using UnityEngine;
 
 public class Enemy : MonoBehaviour
 {
-    [SerializeField, Min(0f)] private float speed = 3f;
-    [SerializeField, Min(0f)] private float acceleration = 9f;
+    [SerializeField, Min(0f)] private float speed = 2.8f;
+    [SerializeField, Min(0f)] private float acceleration = 7f;
     private Rigidbody enemyRb;
     private Transform player;
 
     private void Start()
     {
         enemyRb = GetComponent<Rigidbody>();
+        if (enemyRb != null)
+        {
+            enemyRb.mass = 0.65f;
+            enemyRb.linearDamping = 0.25f;
+            enemyRb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+        }
         CachePlayerTarget();
     }
 

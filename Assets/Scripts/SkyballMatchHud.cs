@@ -13,9 +13,13 @@ public sealed class SkyballMatchHud : MonoBehaviour
     private GUIStyle blueTeamStyle;
     private GUIStyle orangeTeamStyle;
     private GUIStyle statusStyle;
-    private GUIStyle controlStyle;
     private GUIStyle goalStyle;
+    private GUIStyle helpButtonStyle;
+    private GUIStyle helpTitleStyle;
+    private GUIStyle helpKeyStyle;
+    private GUIStyle helpTextStyle;
     private int styledScreenHeight;
+    private bool showControls;
 
     public void Initialize(SkyballMatchManager matchManager)
     {
@@ -77,7 +81,7 @@ public sealed class SkyballMatchHud : MonoBehaviour
                 match.GoalMessage, goalStyle);
         }
 
-        DrawControlPanel(player, margin);
+        DrawControlsHelp(margin, scorePlate);
         GUI.color = Color.white;
     }
 
@@ -116,23 +120,51 @@ public sealed class SkyballMatchHud : MonoBehaviour
         GUI.Label(chip, $"{label} · {remaining:0.0} s", statusStyle);
     }
 
-    private void DrawControlPanel(PlayerController player, float margin)
+    private void DrawControlsHelp(float margin, Rect scorePlate)
     {
-        float panelHeight = Screen.height < 500f ? 90f : 84f;
-        Rect panel = new Rect(margin, Screen.height - panelHeight - margin,
-            Screen.width - margin * 2f, panelHeight);
-        GUI.color = new Color(0.025f, 0.045f, 0.09f, 0.9f);
-        GUI.Box(panel, GUIContent.none);
-        GUI.color = new Color(1f, 1f, 1f, 0.92f);
+        const float buttonWidth = 96f;
+        const float buttonHeight = 34f;
+        float buttonY = Screen.width < 700f
+            ? Screen.height - margin - buttonHeight
+            : margin;
+        Rect button = new Rect(Screen.width - margin - buttonWidth, buttonY, buttonWidth, buttonHeight);
+        GUI.color = Color.white;
+        if (GUI.Button(button, "AYUDA  ?", helpButtonStyle))
+            showControls = !showControls;
 
-        float rowHeight = (panelHeight - 10f) / 3f;
-        GUI.Label(new Rect(panel.x + 8f, panel.y + 3f, panel.width - 16f, rowHeight),
-            "MOVER W/S  ·  GIRAR A/D  ·  SALTAR ESPACIO", controlStyle);
-        string size = player != null ? player.BallSizeLabel : "MEDIANA · NORMAL";
-        GUI.Label(new Rect(panel.x + 8f, panel.y + 3f + rowHeight, panel.width - 16f, rowHeight),
-            "TAMAÑO 1 / 2 / 3: " + size + "  ·  CÁMARA C", controlStyle);
-        GUI.Label(new Rect(panel.x + 8f, panel.y + 3f + rowHeight * 2f, panel.width - 16f, rowHeight),
-            "DISPARAR F / CLIC AL RECOGER EL PODER", controlStyle);
+        if (!showControls) return;
+
+        float panelWidth = Mathf.Min(310f, Screen.width - margin * 2f);
+        const float panelHeight = 256f;
+        float panelX = Screen.width - margin - panelWidth;
+        float panelY = button.yMax + 8f;
+        if (panelY + panelHeight > Screen.height - margin)
+            panelY = Mathf.Max(margin, button.y - panelHeight - 8f);
+        Rect panel = new Rect(panelX, panelY, panelWidth, panelHeight);
+
+        GUI.color = new Color(0.025f, 0.045f, 0.09f, 0.96f);
+        GUI.Box(panel, GUIContent.none);
+        GUI.color = Color.white;
+        GUI.Label(new Rect(panel.x + 16f, panel.y + 12f, panel.width - 32f, 30f),
+            "CÓMO JUGAR", helpTitleStyle);
+
+        float rowY = panel.y + 50f;
+        DrawControlRow(panel, rowY, "W / S", "Avanzar y retroceder");
+        DrawControlRow(panel, rowY + 29f, "A / D", "Girar");
+        DrawControlRow(panel, rowY + 58f, "ESPACIO", "Saltar");
+        DrawControlRow(panel, rowY + 87f, "C", "Cambiar cámara");
+        DrawControlRow(panel, rowY + 116f, "1 / 2 / 3", "Cambiar tamaño");
+        DrawControlRow(panel, rowY + 145f, "F / CLIC", "Disparar con Ráfaga");
+        GUI.color = new Color(1f, 1f, 1f, 0.72f);
+        GUI.Label(new Rect(panel.x + 16f, rowY + 180f, panel.width - 32f, 28f),
+            "Impulso: toca a los rivales para alejarlos.", helpTextStyle);
+        GUI.color = Color.white;
+    }
+
+    private void DrawControlRow(Rect panel, float y, string key, string action)
+    {
+        GUI.Label(new Rect(panel.x + 16f, y, 82f, 26f), key, helpKeyStyle);
+        GUI.Label(new Rect(panel.x + 100f, y, panel.width - 116f, 26f), action, helpTextStyle);
     }
 
     private void EnsureStyles()
@@ -163,9 +195,29 @@ public sealed class SkyballMatchHud : MonoBehaviour
         {
             fontSize = Mathf.Clamp(Screen.height / 48, 11, 16)
         };
-        controlStyle = new GUIStyle(teamStyle)
+        helpButtonStyle = new GUIStyle(GUI.skin.button)
         {
-            fontSize = Mathf.Clamp(Screen.height / 50, 11, 16),
+            fontSize = Mathf.Clamp(Screen.height / 58, 12, 16),
+            fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.MiddleCenter
+        };
+        helpTitleStyle = new GUIStyle(teamStyle)
+        {
+            fontSize = Mathf.Clamp(Screen.height / 42, 14, 20),
+            fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.MiddleLeft
+        };
+        helpKeyStyle = new GUIStyle(teamStyle)
+        {
+            fontSize = Mathf.Clamp(Screen.height / 54, 12, 16),
+            fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.MiddleLeft,
+            normal = { textColor = CyanColor }
+        };
+        helpTextStyle = new GUIStyle(teamStyle)
+        {
+            fontSize = Mathf.Clamp(Screen.height / 58, 11, 15),
+            alignment = TextAnchor.MiddleLeft,
             wordWrap = true
         };
         goalStyle = new GUIStyle(scoreStyle)
