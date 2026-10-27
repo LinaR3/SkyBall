@@ -14,7 +14,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float jumpImpulse = 5.5f;
     [SerializeField] private float groundCheckDistance = 0.9f;
     [SerializeField] private float arrowForwardOffset = 1f;
-    [SerializeField] private float arrowGroundOffset = 0.035f;
+    [SerializeField] private float arrowGroundOffset = 0.075f;
 
     private InputSystem_Actions controls;
     private Rigidbody playerRb;
@@ -124,7 +124,7 @@ public class PlayerController : MonoBehaviour
         Shader arrowShader = Shader.Find("Universal Render Pipeline/Unlit");
         if (arrowShader == null) arrowShader = Shader.Find("Unlit/Color");
         directionArrowMaterial = new Material(arrowShader);
-        directionArrowMaterial.color = new Color(0.34f, 0.78f, 0.72f, 1f);
+        directionArrowMaterial.color = new Color(0.2f, 0.95f, 0.84f, 1f);
         CreateArrowSegment("Front Chevron Left", new Vector3(-0.3f, 0f, -0.08f), new Vector3(0f, 0f, 0.16f));
         CreateArrowSegment("Front Chevron Right", new Vector3(0f, 0f, 0.16f), new Vector3(0.3f, 0f, -0.08f));
         CreateArrowSegment("Rear Chevron Left", new Vector3(-0.3f, 0f, -0.36f), new Vector3(0f, 0f, -0.12f));
@@ -139,13 +139,21 @@ public class PlayerController : MonoBehaviour
         segment.transform.localPosition = (start + end) * 0.5f;
         Vector3 direction = end - start;
         segment.transform.localRotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
-        segment.transform.localScale = new Vector3(0.075f, 0.018f, direction.magnitude);
+        segment.transform.localScale = new Vector3(0.095f, 0.035f, direction.magnitude);
         Destroy(segment.GetComponent<Collider>());
 
         MeshRenderer renderer = segment.GetComponent<MeshRenderer>();
         renderer.sharedMaterial = directionArrowMaterial;
         renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         renderer.receiveShadows = false;
+        renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+        renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+        renderer.renderingLayerMask = uint.MaxValue;
+
+        // Keep the floor marker readable from the gameplay camera even when the ground depth buffer covers it.
+        renderer.material.renderQueue = 4000;
+        renderer.material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
+        renderer.material.SetInt("_ZWrite", 0);
     }
 
     private void UpdateDirectionArrow()
