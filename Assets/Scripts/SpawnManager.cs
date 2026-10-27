@@ -5,6 +5,8 @@ public class SpawnManager : MonoBehaviour
     [SerializeField] private GameObject enemyPrefab;
     [SerializeField] private GameObject powerupPrefab;
     [SerializeField] private float spawnRange = 10.5f;
+    [SerializeField, Min(1)] private int startingEnemyCount = 8;
+    [SerializeField, Min(1)] private int enemiesAddedPerWave = 2;
 
     public int enemyCount;
     public int waveNumber;
@@ -14,7 +16,7 @@ public class SpawnManager : MonoBehaviour
     {
         if (waveNumber < 1)
             waveNumber = 1;
-        SpawnEnemyWave(waveNumber);
+        SpawnEnemyWave(startingEnemyCount);
         SpawnPowerup();
     }
 
@@ -24,7 +26,7 @@ public class SpawnManager : MonoBehaviour
         if (waveActive && enemyCount == 0)
         {
             waveNumber++;
-            SpawnEnemyWave(waveNumber);
+            SpawnEnemyWave(startingEnemyCount + (waveNumber - 1) * enemiesAddedPerWave);
             SpawnPowerup();
         }
     }
