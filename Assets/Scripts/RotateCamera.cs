@@ -65,11 +65,8 @@ public class RotateCamera : MonoBehaviour
     private void LateUpdate()
     {
         if (!IsFollowCamera || gameplayCamera == null) return;
-        if (player == null)
-        {
-            GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
-            if (playerObject != null) player = playerObject.transform;
-        }
+        if (player == null && PlayerController.Instance != null)
+            player = PlayerController.Instance.transform;
         if (player == null) return;
 
         Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;

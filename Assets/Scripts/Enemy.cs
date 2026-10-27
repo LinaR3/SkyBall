@@ -3,18 +3,12 @@ using UnityEngine;
 public class Enemy : MonoBehaviour
 {
     public float speed = 3f;
-    [SerializeField] private Transform playerGoal;
     private Rigidbody enemyRb;
     private Transform player;
 
     private void Start()
     {
         enemyRb = GetComponent<Rigidbody>();
-        if (playerGoal == null)
-        {
-            GameObject goalObject = GameObject.Find("Player Goal");
-            if (goalObject != null) playerGoal = goalObject.transform;
-        }
         FindPlayerTarget();
     }
 
@@ -44,7 +38,7 @@ public class Enemy : MonoBehaviour
             return;
         }
 
-        GameObject playerObject = GameObject.FindGameObjectWithTag("Ball");
+        GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
         if (playerObject != null) player = playerObject.transform;
     }
 }

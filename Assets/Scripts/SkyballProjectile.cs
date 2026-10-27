@@ -16,21 +16,21 @@ public sealed class SkyballProjectile : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.isTrigger || other.attachedRigidbody == ballBody) return;
+        if (other.isTrigger) return;
 
         CreateImpactBurst(transform.position);
 
-        if (other.CompareTag("Enemy") && ballBody != null)
+        if (ballBody != null && other.attachedRigidbody == ballBody)
         {
-            // Clear a lane by nudging defenders aside, then transfer the main
-            // force to the ball so the shot advances it toward the goal.
+            ballBody.AddForce(shotDirection * ballImpulse, ForceMode.Impulse);
+        }
+        else if (other.CompareTag("Enemy"))
+        {
             Rigidbody enemyBody = other.attachedRigidbody;
             if (enemyBody != null)
-                enemyBody.AddForce(shotDirection * 2.5f, ForceMode.Impulse);
+                enemyBody.AddForce(shotDirection * 2f, ForceMode.Impulse);
         }
 
-        if (ballBody != null)
-            ballBody.AddForce(shotDirection * ballImpulse, ForceMode.Impulse);
         Destroy(gameObject);
     }
 

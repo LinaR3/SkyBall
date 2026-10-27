@@ -21,7 +21,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float rapidFireDuration = 1f;
     [SerializeField] private float rapidFireInterval = 0.09f;
     [SerializeField] private float projectileSpeed = 24f;
-    [SerializeField] private float shotImpulse = 9f;
+    [SerializeField] private float shotImpulse = 0.07f;
     [SerializeField, Range(3, 7)] private int projectilesPerBurst = 5;
     [SerializeField] private float projectileSpreadDegrees = 14f;
 
@@ -55,9 +55,6 @@ public class PlayerController : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        // This controllable object is the ball in this prototype. Keep its
-        // identity distinct from the player avatar to prevent false goals.
-        gameObject.tag = "Ball";
         controls = new InputSystem_Actions();
         playerRb = GetComponent<Rigidbody>();
         playerRenderer = GetComponent<Renderer>();
@@ -70,7 +67,6 @@ public class PlayerController : MonoBehaviour
         focalPoint = GameObject.Find("Focal Point");
         startPosition = transform.position;
         startRotation = transform.rotation;
-        GoalReset.CacheInitialPositions();
         SkyballMatchManager.EnsureInstance();
         CreateDirectionArrow();
     }
@@ -390,7 +386,7 @@ public class PlayerController : MonoBehaviour
         projectileBody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
         projectileBody.linearVelocity = direction * projectileSpeed;
         SkyballProjectile shot = projectile.AddComponent<SkyballProjectile>();
-        shot.Initialize(playerRb, direction, shotImpulse);
+        shot.Initialize(SkyballGameBall.Instance != null ? SkyballGameBall.Instance.Body : null, direction, shotImpulse);
         Destroy(projectile, 2.5f);
     }
 
@@ -450,43 +446,5 @@ public class PlayerController : MonoBehaviour
         }
         if (powerupIndicator != null)
             powerupIndicator.SetActive(false);
-    }
-}
-
-// Shared reset helper for goal triggers.
-public static class GoalReset
-{
-    private static Rigidbody ballRigidbody;
-    private static Vector3 ballStartPosition;
-    private static Quaternion ballStartRotation;
-
-    public static void CacheInitialPositions()
-    {
-        GameObject ball = GameObject.Find("Ball");
-        if (ball == null) return;
-        ballRigidbody = ball.GetComponent<Rigidbody>();
-        if (ballRigidbody != null)
-        {
-            ballStartPosition = ball.transform.position;
-            ballStartRotation = ball.transform.rotation;
-        }
-    }
-
-    public static void ResetAll()
-    {
-        GameObject player = GameObject.FindGameObjectWithTag("Player");
-        if (player != null)
-        {
-            PlayerController controller = player.GetComponent<PlayerController>();
-            if (controller != null) controller.ResetForGoal();
-        }
-
-        if (ballRigidbody == null) CacheInitialPositions();
-        if (ballRigidbody != null)
-        {
-            ballRigidbody.transform.SetPositionAndRotation(ballStartPosition, ballStartRotation);
-            ballRigidbody.linearVelocity = Vector3.zero;
-            ballRigidbody.angularVelocity = Vector3.zero;
-        }
     }
 }

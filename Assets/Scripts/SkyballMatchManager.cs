@@ -39,6 +39,13 @@ public sealed class SkyballMatchManager : MonoBehaviour
         CreateArenaCourt();
     }
 
+    private void Start()
+    {
+        Transform player = PlayerController.Instance != null ? PlayerController.Instance.transform : null;
+        Transform forward = GameObject.Find("Focal Point")?.transform;
+        SkyballGameBall.CreateForMatch(player, forward);
+    }
+
     private void OnDestroy()
     {
         if (Instance == this) Instance = null;
@@ -48,9 +55,9 @@ public sealed class SkyballMatchManager : MonoBehaviour
         if (courtTopMesh != null) Destroy(courtTopMesh);
     }
 
-    public void ScoreGoal(bool blueTeamScored, Vector3 ballPosition, PlayerController player)
+    public void ScoreGoal(bool blueTeamScored, SkyballGameBall ball)
     {
-        if (goalPending) return;
+        if (goalPending || ball == null) return;
         goalPending = true;
         if (blueTeamScored)
         {
@@ -62,8 +69,8 @@ public sealed class SkyballMatchManager : MonoBehaviour
             orangeScore++;
             goalMessage = "GOOOL NARANJA";
         }
-        CreateGoalExplosion(ballPosition, blueTeamScored ? new Color(0.1f, 0.65f, 1f) : new Color(1f, 0.38f, 0.08f));
-        if (player != null) player.HideForGoalExplosion();
+        CreateGoalExplosion(ball.transform.position, blueTeamScored ? new Color(0.1f, 0.65f, 1f) : new Color(1f, 0.38f, 0.08f));
+        ball.HideForGoal();
         messageUntil = Time.time + resetDelay;
         resetAt = messageUntil;
     }
@@ -111,7 +118,10 @@ public sealed class SkyballMatchManager : MonoBehaviour
     {
         if (!goalPending || Time.time < resetAt) return;
         goalPending = false;
-        GoalReset.ResetAll();
+        if (PlayerController.Instance != null)
+            PlayerController.Instance.ResetForGoal();
+        if (SkyballGameBall.Instance != null)
+            SkyballGameBall.Instance.ResetToKickoff();
     }
 
     private void OnGUI()
