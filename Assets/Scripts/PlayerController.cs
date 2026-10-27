@@ -3,7 +3,9 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
-    public float playerSpeed = 3f;
+    public float playerSpeed = 6.5f;
+    [SerializeField] private float acceleration = 24f;
+    [SerializeField] private float braking = 30f;
     public bool hasPowerup;
     public GameObject powerupIndicator;
     [SerializeField] private float speedBoostMultiplier = 1.75f;
@@ -13,7 +15,7 @@ public class PlayerController : MonoBehaviour
     private InputSystem_Actions controls;
     private Rigidbody playerRb;
     private GameObject focalPoint;
-    private float baseSpeed;
+    private Vector2 moveInput;
     private Coroutine powerupRoutine;
     private Vector3 startPosition;
     private Quaternion startRotation;
@@ -23,7 +25,6 @@ public class PlayerController : MonoBehaviour
         controls = new InputSystem_Actions();
         playerRb = GetComponent<Rigidbody>();
         focalPoint = GameObject.Find("Focal Point");
-        baseSpeed = playerSpeed;
         startPosition = transform.position;
         startRotation = transform.rotation;
         GoalReset.CacheInitialPositions();
@@ -47,11 +48,7 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
-        if (focalPoint != null && playerRb != null)
-        {
-            Vector2 moveInput = controls.Player.Move.ReadValue<Vector2>();
-            playerRb.AddForce(focalPoint.transform.forward * moveInput.y * playerSpeed * Time.deltaTime);
-        }
+        moveInput = Vector2.ClampMagnitude(controls.Player.Move.ReadValue<Vector2>(), 1f);
 
         if (powerupIndicator != null && powerupIndicator.activeSelf)
             powerupIndicator.transform.position = transform.position + Vector3.down * 0.5f;
@@ -60,13 +57,28 @@ public class PlayerController : MonoBehaviour
             ResetPlayer();
     }
 
+    private void FixedUpdate()
+    {
+        if (playerRb == null || focalPoint == null) return;
+
+        Vector3 forward = Vector3.ProjectOnPlane(focalPoint.transform.forward, Vector3.up).normalized;
+        // A/D rotates the Focal Point; W/S moves along its horizontal forward axis.
+        Vector3 moveDirection = forward * moveInput.y;
+        float currentMaxSpeed = playerSpeed * (hasPowerup ? speedBoostMultiplier : 1f);
+        Vector3 targetVelocity = moveDirection * currentMaxSpeed;
+        Vector3 currentVelocity = playerRb.linearVelocity;
+        Vector3 currentPlanarVelocity = new Vector3(currentVelocity.x, 0f, currentVelocity.z);
+        float response = moveDirection.sqrMagnitude > 0f ? acceleration : braking;
+        Vector3 velocityChange = Vector3.ClampMagnitude(targetVelocity - currentPlanarVelocity, response * Time.fixedDeltaTime);
+        playerRb.AddForce(velocityChange, ForceMode.VelocityChange);
+    }
+
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Powerup"))
         {
             Destroy(other.gameObject);
             hasPowerup = true;
-            playerSpeed = baseSpeed * speedBoostMultiplier;
 
             if (powerupIndicator != null)
                 powerupIndicator.SetActive(true);
@@ -97,7 +109,6 @@ public class PlayerController : MonoBehaviour
     {
         yield return new WaitForSeconds(powerupDuration);
         hasPowerup = false;
-        playerSpeed = baseSpeed;
         if (powerupIndicator != null)
             powerupIndicator.SetActive(false);
         powerupRoutine = null;
