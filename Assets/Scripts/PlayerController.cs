@@ -39,11 +39,15 @@ public class PlayerController : MonoBehaviour
     private float originalAcceleration;
     private float originalBraking;
     private float rapidFireExpiresAt;
+    private float powerupExpiresAt;
     private float nextShotAt;
     private string ballSizeLabel = "MEDIANA";
     private Material projectileMaterial;
+    private Color originalBallColor = Color.white;
+    private Coroutine pickupFeedbackRoutine;
 
     public float RapidFireRemaining => Mathf.Max(0f, rapidFireExpiresAt - Time.time);
+    public float PowerupRemaining => Mathf.Max(0f, powerupExpiresAt - Time.time);
     public string BallSizeLabel => ballSizeLabel;
 
     private void Awake()
@@ -55,6 +59,8 @@ public class PlayerController : MonoBehaviour
         controls = new InputSystem_Actions();
         playerRb = GetComponent<Rigidbody>();
         playerRenderer = GetComponent<Renderer>();
+        if (playerRenderer != null && playerRenderer.sharedMaterial != null)
+            originalBallColor = playerRenderer.sharedMaterial.color;
         originalScale = transform.localScale;
         originalSpeed = playerSpeed;
         originalAcceleration = acceleration;
@@ -269,10 +275,13 @@ public class PlayerController : MonoBehaviour
             {
                 rapidFireExpiresAt = Time.time + rapidFireDuration;
                 nextShotAt = Time.time;
+                ShowPickupFeedback("¡DISPARO POTENCIADO!", new Color(0.15f, 0.9f, 1f));
                 return;
             }
 
             hasPowerup = true;
+            powerupExpiresAt = Time.time + powerupDuration;
+            ShowPickupFeedback("¡IMPULSO ACTIVADO!", new Color(1f, 0.57f, 0.12f));
 
             if (powerupIndicator != null)
                 powerupIndicator.SetActive(true);
@@ -281,6 +290,46 @@ public class PlayerController : MonoBehaviour
                 StopCoroutine(powerupRoutine);
             powerupRoutine = StartCoroutine(PowerupCountdownRoutine());
         }
+    }
+
+    private void ShowPickupFeedback(string message, Color color)
+    {
+        if (pickupFeedbackRoutine != null)
+            StopCoroutine(pickupFeedbackRoutine);
+        pickupFeedbackRoutine = StartCoroutine(PickupFeedbackRoutine(message, color));
+    }
+
+    private IEnumerator PickupFeedbackRoutine(string message, Color color)
+    {
+        if (playerRenderer != null && playerRenderer.material.HasProperty("_BaseColor"))
+            playerRenderer.material.SetColor("_BaseColor", color);
+        else if (playerRenderer != null)
+            playerRenderer.material.color = color;
+
+        float elapsed = 0f;
+        while (elapsed < 1.1f)
+        {
+            elapsed += Time.deltaTime;
+            if (playerRenderer != null)
+            {
+                float pulse = 0.65f + Mathf.Sin(elapsed * 16f) * 0.2f;
+                Color pulseColor = Color.Lerp(originalBallColor, color, pulse);
+                if (playerRenderer.material.HasProperty("_BaseColor"))
+                    playerRenderer.material.SetColor("_BaseColor", pulseColor);
+                else
+                    playerRenderer.material.color = pulseColor;
+            }
+            yield return null;
+        }
+
+        if (playerRenderer != null)
+        {
+            if (playerRenderer.material.HasProperty("_BaseColor"))
+                playerRenderer.material.SetColor("_BaseColor", originalBallColor);
+            else
+                playerRenderer.material.color = originalBallColor;
+        }
+        pickupFeedbackRoutine = null;
     }
 
     private void TryFireRapidShot()
@@ -349,6 +398,7 @@ public class PlayerController : MonoBehaviour
     {
         yield return new WaitForSeconds(powerupDuration);
         hasPowerup = false;
+        powerupExpiresAt = 0f;
         if (powerupIndicator != null)
             powerupIndicator.SetActive(false);
         powerupRoutine = null;
@@ -372,6 +422,7 @@ public class PlayerController : MonoBehaviour
         ResetPlayer();
         SetBallSize(1);
         rapidFireExpiresAt = 0f;
+        powerupExpiresAt = 0f;
         nextShotAt = 0f;
         hasPowerup = false;
         if (powerupRoutine != null)

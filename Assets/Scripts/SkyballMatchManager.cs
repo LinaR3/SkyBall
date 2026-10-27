@@ -144,7 +144,13 @@ public sealed class SkyballMatchManager : MonoBehaviour
             {
                 GUI.color = new Color(1f, 0.68f, 0.2f);
                 GUI.Label(new Rect(plate.x, plate.y + plate.height + 25f, plate.width, 24f),
-                    "DISPARO INFINITO · " + player.RapidFireRemaining.ToString("0.0") + " s", teamStyle);
+                    "DISPARO POTENCIADO · F / CLIC · " + player.RapidFireRemaining.ToString("0.0") + " s", teamStyle);
+            }
+            else if (player.PowerupRemaining > 0f)
+            {
+                GUI.color = new Color(1f, 0.68f, 0.2f);
+                GUI.Label(new Rect(plate.x, plate.y + plate.height + 25f, plate.width, 24f),
+                    "IMPULSO ACTIVO · " + player.PowerupRemaining.ToString("0.0") + " s", teamStyle);
             }
         }
         GUI.color = Color.white;
