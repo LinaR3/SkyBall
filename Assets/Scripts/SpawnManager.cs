@@ -1,56 +1,98 @@
+using System.Collections.Generic;
 using UnityEngine;
 
-public class SpawnManager : MonoBehaviour
+/// <summary>Owns enemy waves and their pickups for the active match.</summary>
+public sealed class SpawnManager : MonoBehaviour
 {
+    public static SpawnManager Instance { get; private set; }
     [SerializeField] private GameObject enemyPrefab;
     [SerializeField] private GameObject powerupPrefab;
-    [SerializeField] private float spawnRange = 10.5f;
+    [SerializeField, Min(1f)] private float spawnRange = 7.2f;
     [SerializeField, Min(1)] private int startingEnemyCount = 8;
     [SerializeField, Min(1)] private int enemiesAddedPerWave = 2;
+    [SerializeField, Min(0f)] private float minimumPlayerDistance = 3f;
 
-    public int enemyCount;
-    public int waveNumber;
+    [SerializeField] private int enemyCount;
+    [SerializeField] private int waveNumber = 1;
+
+    public int EnemyCount => enemyCount;
+    public int WaveNumber => waveNumber;
+
+    private readonly List<Enemy> activeEnemies = new List<Enemy>();
     private bool waveActive;
+
+    private void Awake()
+    {
+        Instance = this;
+    }
 
     private void Start()
     {
-        if (waveNumber < 1)
-            waveNumber = 1;
-        SpawnEnemyWave(startingEnemyCount);
+        if (enemyPrefab == null || enemyPrefab.GetComponent<Enemy>() == null)
+        {
+            Debug.LogError("SpawnManager requires an enemy prefab with an Enemy component.", this);
+            enabled = false;
+            return;
+        }
+
+        waveNumber = Mathf.Max(1, waveNumber);
+        SpawnEnemyWave(Mathf.Max(1, startingEnemyCount));
         SpawnPowerup();
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
     }
 
     private void Update()
     {
-        enemyCount = FindObjectsByType<Enemy>(FindObjectsSortMode.None).Length;
-        if (waveActive && enemyCount == 0)
+        activeEnemies.RemoveAll(enemy => enemy == null);
+        enemyCount = activeEnemies.Count;
+        if (!waveActive || enemyCount > 0) return;
+
+        waveNumber++;
+        int nextWaveCount = Mathf.Max(1, startingEnemyCount + (waveNumber - 1) * Mathf.Max(1, enemiesAddedPerWave));
+        SpawnEnemyWave(nextWaveCount);
+        SpawnPowerup();
+    }
+
+    private void SpawnEnemyWave(int count)
+    {
+        waveActive = true;
+        for (int i = 0; i < count; i++)
         {
-            waveNumber++;
-            SpawnEnemyWave(startingEnemyCount + (waveNumber - 1) * enemiesAddedPerWave);
-            SpawnPowerup();
+            Enemy enemy = Instantiate(enemyPrefab, GenerateSpawnPosition(), enemyPrefab.transform.rotation)
+                .GetComponent<Enemy>();
+            if (enemy == null) continue;
+            activeEnemies.Add(enemy);
         }
+
+        enemyCount = activeEnemies.Count;
     }
 
     private Vector3 GenerateSpawnPosition()
     {
-        return new Vector3(Random.Range(-spawnRange, spawnRange), 0f,
-            Random.Range(-7.8f, 7.8f));
-    }
-
-    private void SpawnEnemyWave(int enemiesToSpawn)
-    {
-        waveActive = true;
-        for (int i = 0; i < enemiesToSpawn; i++)
-            Instantiate(enemyPrefab, GenerateSpawnPosition(), enemyPrefab.transform.rotation);
-
-        if (waveNumber % 2 == 0)
-            SpawnRapidFirePowerup();
+        Vector3 playerPosition = PlayerController.Instance != null
+            ? PlayerController.Instance.transform.position
+            : Vector3.zero;
+        Vector3 candidate = Vector3.zero;
+        for (int attempt = 0; attempt < 12; attempt++)
+        {
+            candidate = new Vector3(Random.Range(-spawnRange, spawnRange), 0f,
+                Random.Range(-7.8f, 7.8f));
+            if (Vector3.Distance(candidate, playerPosition) >= minimumPlayerDistance) break;
+        }
+        return candidate;
     }
 
     private void SpawnPowerup()
     {
         if (powerupPrefab != null)
             Instantiate(powerupPrefab, GenerateSpawnPosition(), powerupPrefab.transform.rotation);
+
+        if (waveNumber % 2 == 0)
+            SpawnRapidFirePowerup();
     }
 
     private void SpawnRapidFirePowerup()
@@ -71,7 +113,6 @@ public class SpawnManager : MonoBehaviour
             material.EnableKeyword("_EMISSION");
             material.SetColor("_EmissionColor", new Color(1f, 0.24f, 0.02f) * 1.6f);
         }
-        pickup.GetComponent<Renderer>().sharedMaterial = material;
-        pickup.AddComponent<RapidFirePickup>();
+        pickup.AddComponent<RapidFirePickup>().Initialize(material);
     }
 }
