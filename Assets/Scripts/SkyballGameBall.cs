@@ -7,6 +7,7 @@ public sealed class SkyballGameBall : MonoBehaviour
 
     private Rigidbody body;
     private Renderer ballRenderer;
+    private Material markingMaterial;
     private Vector3 kickoffPosition;
     private Quaternion kickoffRotation;
 
@@ -54,9 +55,9 @@ public sealed class SkyballGameBall : MonoBehaviour
 
         Shader shader = Shader.Find("Universal Render Pipeline/Lit");
         if (shader == null) shader = Shader.Find("Standard");
-        Material material = new Material(shader) { color = new Color(0.96f, 0.98f, 1f) };
+        Material material = new Material(shader) { color = new Color(1f, 0.79f, 0.12f) };
         if (material.HasProperty("_Metallic")) material.SetFloat("_Metallic", 0.08f);
-        if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", 0.42f);
+        if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", 0.32f);
         ball.GetComponent<Renderer>().sharedMaterial = material;
 
         Rigidbody rigidbody = ball.AddComponent<Rigidbody>();
@@ -65,8 +66,48 @@ public sealed class SkyballGameBall : MonoBehaviour
         rigidbody.angularDamping = 0.08f;
         rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
         rigidbody.collisionDetectionMode = CollisionDetectionMode.Continuous;
+
+        Shader markingShader = Shader.Find("Universal Render Pipeline/Unlit");
+        if (markingShader == null) markingShader = Shader.Find("Unlit/Color");
         SkyballGameBall gameBall = ball.AddComponent<SkyballGameBall>();
+        gameBall.markingMaterial = new Material(markingShader) { color = new Color(0.08f, 0.16f, 0.24f) };
+        CreateBallRing(ball.transform, "Ball Pattern Equator", 0);
+        CreateBallRing(ball.transform, "Ball Pattern Meridian A", 1);
+        CreateBallRing(ball.transform, "Ball Pattern Meridian B", 2);
+
         return gameBall;
+    }
+
+    private static void CreateBallRing(Transform parent, string ringName, int plane)
+    {
+        const int segments = 48;
+        const float radius = 0.554f;
+        Vector3[] points = new Vector3[segments + 1];
+        for (int i = 0; i <= segments; i++)
+        {
+            float angle = i * Mathf.PI * 2f / segments;
+            float cosine = Mathf.Cos(angle) * radius;
+            float sine = Mathf.Sin(angle) * radius;
+            points[i] = plane switch
+            {
+                0 => new Vector3(cosine, 0f, sine),
+                1 => new Vector3(cosine, sine, 0f),
+                _ => new Vector3(0f, cosine, sine)
+            };
+        }
+
+        GameObject ringObject = new GameObject(ringName);
+        ringObject.transform.SetParent(parent, false);
+        LineRenderer ring = ringObject.AddComponent<LineRenderer>();
+        ring.useWorldSpace = false;
+        ring.positionCount = points.Length;
+        ring.SetPositions(points);
+        ring.startWidth = 0.024f;
+        ring.endWidth = 0.024f;
+        ring.numCapVertices = 2;
+        ring.sharedMaterial = parent.GetComponent<SkyballGameBall>().markingMaterial;
+        ring.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        ring.receiveShadows = false;
     }
 
     public void HideForGoal()
@@ -95,5 +136,6 @@ public sealed class SkyballGameBall : MonoBehaviour
         if (Instance == this) Instance = null;
         if (ballRenderer != null && ballRenderer.sharedMaterial != null)
             Destroy(ballRenderer.sharedMaterial);
+        if (markingMaterial != null) Destroy(markingMaterial);
     }
 }
