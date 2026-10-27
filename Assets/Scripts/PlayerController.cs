@@ -35,6 +35,7 @@ public class PlayerController : MonoBehaviour
         startPosition = transform.position;
         startRotation = transform.rotation;
         GoalReset.CacheInitialPositions();
+        SkyballMatchManager.EnsureInstance();
         CreateDirectionArrow();
     }
 
@@ -184,10 +185,6 @@ public class PlayerController : MonoBehaviour
                 StopCoroutine(powerupRoutine);
             powerupRoutine = StartCoroutine(PowerupCountdownRoutine());
         }
-        else if (other.CompareTag("Goal"))
-        {
-            GoalReset.ResetAll();
-        }
     }
 
     private void OnCollisionEnter(Collision collision)
@@ -221,6 +218,19 @@ public class PlayerController : MonoBehaviour
             playerRb.angularVelocity = Vector3.zero;
         }
     }
+
+    public void ResetForGoal()
+    {
+        ResetPlayer();
+        hasPowerup = false;
+        if (powerupRoutine != null)
+        {
+            StopCoroutine(powerupRoutine);
+            powerupRoutine = null;
+        }
+        if (powerupIndicator != null)
+            powerupIndicator.SetActive(false);
+    }
 }
 
 // Shared reset helper for goal triggers.
@@ -248,7 +258,7 @@ public static class GoalReset
         if (player != null)
         {
             PlayerController controller = player.GetComponent<PlayerController>();
-            if (controller != null) controller.ResetPlayer();
+            if (controller != null) controller.ResetForGoal();
         }
 
         if (ballRigidbody == null) CacheInitialPositions();
