@@ -3,9 +3,15 @@ using UnityEngine;
 /// <summary>Renders match score, status, controls, and short pickup feedback.</summary>
 public sealed class SkyballMatchHud : MonoBehaviour
 {
+    private static readonly Color BlueColor = new Color(0.24f, 0.68f, 1f);
+    private static readonly Color OrangeColor = new Color(1f, 0.53f, 0.2f);
+    private static readonly Color CyanColor = new Color(0.35f, 0.95f, 1f);
+
     private SkyballMatchManager match;
     private GUIStyle scoreStyle;
     private GUIStyle teamStyle;
+    private GUIStyle blueTeamStyle;
+    private GUIStyle orangeTeamStyle;
     private GUIStyle statusStyle;
     private GUIStyle controlStyle;
     private GUIStyle goalStyle;
@@ -29,11 +35,11 @@ public sealed class SkyballMatchHud : MonoBehaviour
         GUI.color = new Color(0.025f, 0.045f, 0.09f, 0.9f);
         GUI.Box(scorePlate, GUIContent.none);
         GUI.color = Color.white;
-        GUI.Label(new Rect(scorePlate.x + 10f, scorePlate.y, scoreWidth * 0.25f, scoreHeight), "AZUL", teamStyle);
+        GUI.Label(new Rect(scorePlate.x + 10f, scorePlate.y, scoreWidth * 0.25f, scoreHeight), "AZUL", blueTeamStyle);
         GUI.Label(new Rect(scorePlate.x + scoreWidth * 0.3f, scorePlate.y, scoreWidth * 0.4f, scoreHeight),
             $"{match.BlueScore}  :  {match.OrangeScore}", scoreStyle);
         GUI.Label(new Rect(scorePlate.x + scoreWidth * 0.72f, scorePlate.y, scoreWidth * 0.25f, scoreHeight),
-            "NARANJA", teamStyle);
+            "NARANJA", orangeTeamStyle);
 
         float statusY = scorePlate.y + scoreHeight + 6f;
         DrawWaveStatus(margin, scorePlate, scoreHeight, ref statusY);
@@ -49,16 +55,16 @@ public sealed class SkyballMatchHud : MonoBehaviour
         if (player != null)
         {
             if (player.RapidFireRemaining > 0f)
-                DrawPowerupStatus(scorePlate, statusY, "RÁFAGA · F / CLIC", player.RapidFireRemaining, Color.white);
+                DrawPowerupStatus(scorePlate, statusY, "RÁFAGA · F / CLIC", player.RapidFireRemaining, CyanColor);
             if (player.PowerupRemaining > 0f)
             {
                 float secondStatusY = statusY + (player.RapidFireRemaining > 0f ? 26f : 0f);
-                DrawPowerupStatus(scorePlate, secondStatusY, "IMPULSO", player.PowerupRemaining, Color.white);
+                DrawPowerupStatus(scorePlate, secondStatusY, "IMPULSO", player.PowerupRemaining, OrangeColor);
             }
 
             if (!string.IsNullOrEmpty(player.PickupMessage))
             {
-                GUI.color = Color.white;
+                GUI.color = player.PickupMessage.Contains("IMPULSO") ? OrangeColor : CyanColor;
                 GUI.Label(new Rect(margin, Screen.height * 0.4f, Screen.width - margin * 2f, 44f),
                     player.PickupMessage, goalStyle);
             }
@@ -66,7 +72,7 @@ public sealed class SkyballMatchHud : MonoBehaviour
 
         if (match.IsShowingGoalMessage)
         {
-            GUI.color = Color.white;
+            GUI.color = GoalColor(match.GoalMessage);
             GUI.Label(new Rect(margin, Screen.height * 0.25f, Screen.width - margin * 2f, 90f),
                 match.GoalMessage, goalStyle);
         }
@@ -145,6 +151,14 @@ public sealed class SkyballMatchHud : MonoBehaviour
             fontSize = Mathf.Clamp(Screen.height / 42, 12, 20),
             normal = { textColor = Color.white }
         };
+        blueTeamStyle = new GUIStyle(teamStyle)
+        {
+            normal = { textColor = BlueColor }
+        };
+        orangeTeamStyle = new GUIStyle(teamStyle)
+        {
+            normal = { textColor = OrangeColor }
+        };
         statusStyle = new GUIStyle(teamStyle)
         {
             fontSize = Mathf.Clamp(Screen.height / 48, 11, 16)
@@ -159,5 +173,10 @@ public sealed class SkyballMatchHud : MonoBehaviour
             fontSize = Mathf.Clamp(Screen.height / 12, 34, 68),
             normal = { textColor = Color.white }
         };
+    }
+
+    private static Color GoalColor(string message)
+    {
+        return message.Contains("AZUL") ? BlueColor : OrangeColor;
     }
 }
