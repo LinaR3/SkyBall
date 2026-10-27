@@ -22,6 +22,8 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float rapidFireInterval = 0.09f;
     [SerializeField] private float projectileSpeed = 24f;
     [SerializeField] private float shotImpulse = 9f;
+    [SerializeField, Range(3, 7)] private int projectilesPerBurst = 5;
+    [SerializeField] private float projectileSpreadDegrees = 14f;
 
     private InputSystem_Actions controls;
     private Rigidbody playerRb;
@@ -348,32 +350,48 @@ public class PlayerController : MonoBehaviour
         // back onto the ball so the power kicks the ball toward the far goal.
         Vector3 spawnPosition = transform.position + shotDirection * (radius + 0.45f) + Vector3.up * 0.1f;
 
+        EnsureProjectileMaterial();
+
+        int count = Mathf.Max(1, projectilesPerBurst);
+        for (int i = 0; i < count; i++)
+        {
+            float spread = count == 1 ? 0f : Mathf.Lerp(-projectileSpreadDegrees, projectileSpreadDegrees, i / (float)(count - 1));
+            Vector3 pelletDirection = Quaternion.AngleAxis(spread, Vector3.up) * shotDirection;
+            Vector3 pelletPosition = spawnPosition + Quaternion.AngleAxis(spread, Vector3.up) * shotDirection * (i * 0.035f);
+            SpawnProjectilePellet(pelletPosition, pelletDirection);
+        }
+        nextShotAt = Time.time + rapidFireInterval;
+    }
+
+    private void EnsureProjectileMaterial()
+    {
+        if (projectileMaterial != null) return;
+        Shader projectileShader = Shader.Find("Universal Render Pipeline/Unlit");
+        if (projectileShader == null) projectileShader = Shader.Find("Unlit/Color");
+        projectileMaterial = new Material(projectileShader) { color = new Color(0.3f, 0.95f, 1f) };
+        if (projectileMaterial.HasProperty("_EmissionColor"))
+        {
+            projectileMaterial.EnableKeyword("_EMISSION");
+            projectileMaterial.SetColor("_EmissionColor", new Color(0.1f, 0.8f, 1f) * 2f);
+        }
+    }
+
+    private void SpawnProjectilePellet(Vector3 position, Vector3 direction)
+    {
         GameObject projectile = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        projectile.name = "Rapid Fire Orb";
-        projectile.transform.position = spawnPosition;
+        projectile.name = "Rapid Fire Pellet";
+        projectile.transform.position = position;
         projectile.transform.localScale = Vector3.one * 0.2f;
         projectile.GetComponent<SphereCollider>().isTrigger = true;
-        if (projectileMaterial == null)
-        {
-            Shader projectileShader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (projectileShader == null) projectileShader = Shader.Find("Unlit/Color");
-            projectileMaterial = new Material(projectileShader) { color = new Color(0.3f, 0.95f, 1f) };
-            if (projectileMaterial.HasProperty("_EmissionColor"))
-            {
-                projectileMaterial.EnableKeyword("_EMISSION");
-                projectileMaterial.SetColor("_EmissionColor", new Color(0.1f, 0.8f, 1f) * 2f);
-            }
-        }
         projectile.GetComponent<Renderer>().sharedMaterial = projectileMaterial;
 
         Rigidbody projectileBody = projectile.AddComponent<Rigidbody>();
         projectileBody.useGravity = false;
         projectileBody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-        projectileBody.linearVelocity = shotDirection * projectileSpeed;
+        projectileBody.linearVelocity = direction * projectileSpeed;
         SkyballProjectile shot = projectile.AddComponent<SkyballProjectile>();
-        shot.Initialize(playerRb, shotDirection, shotImpulse);
+        shot.Initialize(playerRb, direction, shotImpulse);
         Destroy(projectile, 2.5f);
-        nextShotAt = Time.time + rapidFireInterval;
     }
 
     public void HideForGoalExplosion()
